@@ -5,10 +5,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { load } from "@tauri-apps/plugin-store";
 import useCacheImageWorkflow from "./cache-image-workflow";
+import useRequiredDataStore from "@/store/required-data-store";
+import { toast } from "sonner";
+import useStoreAchievements from "./store-achievments-workflow";
+import { SteamSchemaResponse } from "@/types/achievements";
 
 const useAddGameWorkflow = () => {
   const { addGame } = useMyGamesStore();
   const { downloadImage, loadImage } = useCacheImageWorkflow();
+  const { getSteamApiKey } = useRequiredDataStore();
+  const { storeJson } = useStoreAchievements();
   async function getGamePath() {
     const gamePath = await open({
       title: "Select Game Executable",
@@ -36,15 +42,14 @@ const useAddGameWorkflow = () => {
           appId: appId,
         }
       );
-      console.log({ metadata });
+
       if (metadata) {
         name = metadata.name;
         // cache image and return path
-        const [coverImage, backgroundImage] = await Promise.all([
+        const [] = await Promise.all([
           downloadImage(metadata.header_image, `cover_${appId}.jpg`),
           downloadImage(metadata.background, `background_${appId}.jpg`),
         ]);
-        console.log({ coverImage, backgroundImage });
         const [coverImageUrl, backgroundImageUrl] = await Promise.all([
           loadImage(`cover_${appId}.jpg`),
           loadImage(`background_${appId}.jpg`),
@@ -77,16 +82,44 @@ const useAddGameWorkflow = () => {
           about_the_game,
           exePath: gamePath,
         };
+        const achievements = await getGameSteamAchievementSchema(
+          String(steam_appid)
+        );
         addGame(data);
         const store = await load("my-games.json");
         await store.set(`game_${steam_appid}`, data);
         await store.save();
+        const achievements_store = await load("achievements.json");
+        await achievements_store.set(
+          `achievements_${steam_appid}`,
+          achievements
+        );
+        await achievements_store.save();
         return true;
       }
     }
     return false;
   }
-
+  async function getGameSteamAchievementSchema(app_id: string) {
+    const apiKey = getSteamApiKey();
+    if (!apiKey) {
+      toast.error("Please Make Sure to include You API Key", {
+        style: {
+          background: "rgb(185 28 28)",
+        },
+      });
+    } else {
+      const result: SteamSchemaResponse = await invoke("fetch_achievements", {
+        apiKey: apiKey.trim(),
+        appid: app_id,
+      });
+      console.log({ result: result });
+      const jsonFilePath = await storeJson(result, {
+        fileName: `achievements_${app_id}.json`,
+      });
+      return result;
+    }
+  }
   function getGameNameAndDir(path: string) {
     // Normalize path separators for Windows
     const normalizedPath = path.replace(/\\/g, "/");
@@ -97,7 +130,6 @@ const useAddGameWorkflow = () => {
     const name = fileWithExt.replace(/\.[^/.]+$/, ""); // Remove extension
     return { dir: dir.replace(/\//g, "\\"), name };
   }
-  function addGameToLibrary() {}
   return { getGamePath };
 };
 

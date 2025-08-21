@@ -9,8 +9,8 @@ const useCacheImageWorkflow = () => {
     return assetsDir;
   }
 
-  async function downloadImage(url: string, fileName: string) {
-    const assetsDir = await createAssetsDir();
+  async function downloadImage(url: string, fileName: string, dir?: string) {
+    const assetsDir = dir || (await createAssetsDir());
     // Fetch the image as a Response object
     const response = await fetch(url);
     if (!response.ok)

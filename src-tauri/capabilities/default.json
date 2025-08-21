@@ -20,7 +20,10 @@
     },
     {
       "identifier": "http:default",
-      "allow": [{ "url": "**" }]
+      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
+    },
+    {
+      "identifier": "fs:allow-appdata-write-recursive"
     }
   ]
 }
