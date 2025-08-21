@@ -12,7 +12,15 @@
     "fs:default",
     {
       "identifier": "fs:scope",
-      "allow": [{ "path": "**/*" }]
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "**" }]
     }
   ]
 }

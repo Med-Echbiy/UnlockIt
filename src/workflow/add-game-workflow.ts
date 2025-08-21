@@ -4,9 +4,11 @@ import { SteamMetadataMinimal } from "@/types/metadataFromSteam";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { load } from "@tauri-apps/plugin-store";
+import useCacheImageWorkflow from "./cache-image-workflow";
 
 const useAddGameWorkflow = () => {
   const { addGame } = useMyGamesStore();
+  const { downloadImage, loadImage } = useCacheImageWorkflow();
   async function getGamePath() {
     const gamePath = await open({
       title: "Select Game Executable",
@@ -37,12 +39,20 @@ const useAddGameWorkflow = () => {
       console.log({ metadata });
       if (metadata) {
         name = metadata.name;
-        // You can use these fields as needed
+        // cache image and return path
+        const [coverImage, backgroundImage] = await Promise.all([
+          downloadImage(metadata.header_image, `cover_${appId}.jpg`),
+          downloadImage(metadata.background, `background_${appId}.jpg`),
+        ]);
+        console.log({ coverImage, backgroundImage });
+        const [coverImageUrl, backgroundImageUrl] = await Promise.all([
+          loadImage(`cover_${appId}.jpg`),
+          loadImage(`background_${appId}.jpg`),
+        ]);
+        console.log({ coverImageUrl, backgroundImageUrl });
         const {
           capsule_image,
           capsule_imagev5,
-          header_image,
-          background,
           background_raw,
           developers,
           release_date,
@@ -57,8 +67,8 @@ const useAddGameWorkflow = () => {
           dir,
           capsule_image,
           capsule_imagev5,
-          header_image,
-          background,
+          header_image: coverImageUrl,
+          background: backgroundImageUrl,
           background_raw,
           developers,
           release_date,
