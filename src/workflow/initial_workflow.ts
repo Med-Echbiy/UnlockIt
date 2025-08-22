@@ -3,7 +3,7 @@ import useMyGamesStore from "@/store/my-games-store";
 import { SteamSchemaResponse } from "@/types/achievements";
 import { GameStoreData } from "@/types/Game";
 import { load } from "@tauri-apps/plugin-store";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const useInitialWorkflow = () => {
   const { addGame } = useMyGamesStore();
@@ -14,8 +14,8 @@ const useInitialWorkflow = () => {
         load("my-games.json"),
         load("achievements.json"),
       ]);
-      // store.clear();
-      // achievements_store.clear();
+      store.clear();
+      achievements_store.clear();
       const [data, data_achievement] = await Promise.all([
         store.entries(),
         achievements_store.entries(),

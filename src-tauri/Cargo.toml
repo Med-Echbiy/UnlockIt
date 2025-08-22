@@ -28,4 +28,5 @@ tauri-plugin-shell = "2"
 tauri-plugin-store = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
-
+base64 = "0.21"
+tokio = { version = "1", features = ["full"] }

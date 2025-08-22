@@ -24,6 +24,9 @@
     },
     {
       "identifier": "fs:allow-appdata-write-recursive"
+    },
+    {
+      "identifier": "shell:allow-spawn"
     }
   ]
 }

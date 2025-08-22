@@ -4,8 +4,6 @@ import { motion } from "framer-motion";
 import useMyGamesStore from "@/store/my-games-store";
 import { GameCard } from "./game-card";
 import { Gamepad2 } from "lucide-react";
-import RippleGrid from "@/animation-ui/RippleGrid/RippleGrid";
-import DotGrid from "@/animation-ui/DotGrid/DotGrid";
 
 function Games() {
   const { games } = useMyGamesStore();

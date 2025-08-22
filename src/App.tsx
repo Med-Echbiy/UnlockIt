@@ -9,6 +9,7 @@ import settingsModalStore from "./store/settings-modal-state";
 import SettingsDialog from "./components/main/Settings/Settings";
 import { Toaster } from "./components/ui/sonner";
 import useInitialWorkflow from "./workflow/initial_workflow";
+import GameDetails from "./components/main/Game/game-details";
 
 function App() {
   const { open } = settingsModalStore();
@@ -21,6 +22,7 @@ function App() {
           <Route path='/' element={<Home />} />
           <Route path='/games' element={<Games />} />
           {/* <Route path='/settings' element={<Settings />} /> */}
+          <Route path='/game/:id' element={<GameDetails />} />
         </Routes>
         {/* </Sidebar> */}
         {open && <SettingsDialog />}

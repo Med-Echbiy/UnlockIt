@@ -4601,6 +4601,7 @@ dependencies = [
  "io-uring",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "slab",
@@ -4933,6 +4934,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 name = "unlockit"
 version = "0.1.0"
 dependencies = [
+ "base64 0.21.7",
  "reqwest",
  "serde",
  "serde_json",
@@ -4944,6 +4946,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-shell",
  "tauri-plugin-store",
+ "tokio",
 ]
 
 [[package]]

@@ -22,4 +22,9 @@ export interface GameStoreData {
   }[];
   about_the_game: string;
   exePath: string;
+  screenshots: {
+    id: number;
+    path_full: string;
+    path_thumbnail: string;
+  }[];
 }

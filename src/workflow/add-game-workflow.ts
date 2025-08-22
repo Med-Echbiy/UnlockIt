@@ -46,15 +46,15 @@ const useAddGameWorkflow = () => {
       if (metadata) {
         name = metadata.name;
         // cache image and return path
-        const [] = await Promise.all([
+        const [cover, backgroundImg] = await Promise.all([
           downloadImage(metadata.header_image, `cover_${appId}.jpg`),
-          downloadImage(metadata.background, `background_${appId}.jpg`),
+          downloadImage(metadata.background_raw, `background_${appId}.jpg`),
         ]);
-        const [coverImageUrl, backgroundImageUrl] = await Promise.all([
-          loadImage(`cover_${appId}.jpg`),
-          loadImage(`background_${appId}.jpg`),
-        ]);
-        console.log({ coverImageUrl, backgroundImageUrl });
+        // const [coverImageUrl, backgroundImageUrl] = await Promise.all([
+        //   loadImage(`cover_${appId}.jpg`),
+        //   loadImage(`background_${appId}.jpg`),
+        // ]);
+        // console.log({ coverImageUrl, backgroundImageUrl });
         const {
           capsule_image,
           capsule_imagev5,
@@ -65,6 +65,7 @@ const useAddGameWorkflow = () => {
           metacritic,
           genres,
           about_the_game,
+          screenshots,
         } = metadata;
         const data = {
           name,
@@ -72,8 +73,8 @@ const useAddGameWorkflow = () => {
           dir,
           capsule_image,
           capsule_imagev5,
-          header_image: coverImageUrl,
-          background: backgroundImageUrl,
+          header_image: cover,
+          background: backgroundImg,
           background_raw,
           developers,
           release_date,
@@ -81,6 +82,7 @@ const useAddGameWorkflow = () => {
           genres,
           about_the_game,
           exePath: gamePath,
+          screenshots,
         };
         const achievements = await getGameSteamAchievementSchema(
           String(steam_appid)
