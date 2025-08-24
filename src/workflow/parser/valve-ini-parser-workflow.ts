@@ -1,4 +1,4 @@
-import { exists, readDir, readTextFile } from "@tauri-apps/plugin-fs";
+import { readDir, readTextFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import sharedParsingWorkflow from "./shared-parse-workflow";
 
@@ -9,7 +9,8 @@ const useValveIniParser = ({
   appid: number;
   exePath: string;
 }) => {
-  const { checkExePath } = sharedParsingWorkflow();
+  const { checkExePath, saveToTrackList } = sharedParsingWorkflow();
+
   // Implementation of the Valve INI parser workflow
 
   const fileRegex = /achievements\.bin$/i;
@@ -58,7 +59,7 @@ const useValveIniParser = ({
             achievedAt: Number(match[2]),
           });
         }
-
+        await saveToTrackList(appid, achievementsBinPath);
         return achievementEntries;
       }
     }

@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import useAchievementsStore from "@/store/achievments-store";
+import useAchievementsStore from "@/store/achievements-store";
 import useMyGamesStore from "@/store/my-games-store";
 import useRustTrackPlaytimeWorkflow from "@/workflow/rust-track-playtime-workflow";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,6 +21,7 @@ import {
   XCircle,
   Trophy,
   RefreshCcw,
+  Trash,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -32,6 +33,9 @@ import { GameStoreData } from "@/types/Game";
 import { Achievement } from "@/types/achievements";
 import { motion } from "framer-motion";
 import useParsingWorkflow from "@/workflow/parser/parse-workflow";
+import ConfirmationDialog from "../shared/confirmation-dialog";
+import useResetAchievementsWorkflow from "@/workflow/reset-achievements-workflow";
+import useUIStateStore from "@/store/ui-state-store";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -66,6 +70,7 @@ function GameDetailsHeader({ id }: { id: string }) {
   const [coverImg, setCoverImage] = useState<string | null>(null);
   const [backgroundImg, setBackgroundImage] = useState<string | null>(null);
   const [installed, setInstalled] = useState<boolean>(false);
+
   useEffect(() => {
     (async () => {
       console.log({ game });
@@ -198,6 +203,14 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
     appid: game.appId,
     exePath: game.exePath,
   });
+  const { resetAchievements } = useResetAchievementsWorkflow(game.appId);
+  const { setConfirmationModal, confirmationModal } = useUIStateStore();
+  function onReset() {
+    setConfirmationModal(true, "reset achievements", () => {
+      resetAchievements();
+      confirmationModal.onCancel();
+    });
+  }
   return (
     <>
       <Card>
@@ -243,10 +256,16 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
                     Hidden
                   </Button>
                 </div>
-                <Button onClick={() => parseAchievements()}>
-                  Refresh Achievements
-                  <RefreshCcw />
-                </Button>
+                <div className='flex items-center gap-2'>
+                  <Button onClick={() => parseAchievements()}>
+                    Refresh Achievements
+                    <RefreshCcw />
+                  </Button>
+                  <Button variant='destructive' onClick={() => onReset()}>
+                    Reset Achievements
+                    <Trash />
+                  </Button>
+                </div>
               </div>
             )}
           </div>

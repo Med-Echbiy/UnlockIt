@@ -11,6 +11,7 @@ import { Toaster } from "./components/ui/sonner";
 import useInitialWorkflow from "./workflow/initial_workflow";
 import GameDetails from "./components/main/Game/game-details";
 import { GamingLoader } from "./components/main/shared/add-game-loading";
+import ConfirmationDialog from "./components/main/shared/confirmation-dialog";
 
 function App() {
   const { open } = settingsModalStore();
@@ -46,6 +47,7 @@ function App() {
         <div className='mt-auto'>
           <DockContainer />
         </div>
+        <ConfirmationDialog />
       </div>
     </Router>
   );

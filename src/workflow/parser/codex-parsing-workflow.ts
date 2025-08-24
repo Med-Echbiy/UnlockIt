@@ -1,5 +1,6 @@
 import { path } from "@tauri-apps/api";
 import { readFile } from "@tauri-apps/plugin-fs";
+import sharedParsingWorkflow from "./shared-parse-workflow";
 const useCodexParserWorkflow = ({
   appid,
   exePath,
@@ -7,6 +8,7 @@ const useCodexParserWorkflow = ({
   appid: number;
   exePath: string;
 }) => {
+  const { saveToTrackList } = sharedParsingWorkflow();
   // Your implementation here
   async function getTheCodexFolder() {
     try {
@@ -32,6 +34,7 @@ const useCodexParserWorkflow = ({
       const filePath = await path.join(codexFolder, "achievements.ini");
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
       console.log({ readIniFile });
+      await saveToTrackList(appid, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {

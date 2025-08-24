@@ -1,5 +1,8 @@
+import useAchievementsStore from "@/store/achievements-store";
 import { path } from "@tauri-apps/api";
 import { readFile } from "@tauri-apps/plugin-fs";
+import useInitialWorkflow from "../initial_workflow";
+import sharedParsingWorkflow from "./shared-parse-workflow";
 const useOnlineFixParserWorkflow = ({
   appid,
   exePath,
@@ -7,6 +10,7 @@ const useOnlineFixParserWorkflow = ({
   appid: number;
   exePath: string;
 }) => {
+  const { saveToTrackList } = sharedParsingWorkflow();
   // Your implementation here
   async function getTheOnlineFixFolder() {
     try {
@@ -29,8 +33,10 @@ const useOnlineFixParserWorkflow = ({
         "Stats",
         "Achievements.ini"
       );
+
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
       console.log({ readIniFile });
+      await saveToTrackList(appid, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {

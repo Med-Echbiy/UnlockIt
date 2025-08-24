@@ -9,7 +9,7 @@ import useRequiredDataStore from "@/store/required-data-store";
 import { toast } from "sonner";
 import useStoreAchievements from "./store-achievments-workflow";
 import { SteamSchemaResponse } from "@/types/achievements";
-import useAchievementsStore from "@/store/achievments-store";
+import useAchievementsStore from "@/store/achievements-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
 import useUIStateStore from "@/store/ui-state-store";
 

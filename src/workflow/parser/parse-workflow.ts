@@ -2,7 +2,7 @@ import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import useValveIniParser from "./valve-ini-parser-workflow";
 import { Achievement, SteamSchemaResponse } from "@/types/achievements";
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
-import useAchievementsStore from "@/store/achievments-store";
+import useAchievementsStore from "@/store/achievements-store";
 import { load } from "@tauri-apps/plugin-store";
 import useRuneParserWorkflow from "./rune-parser.workflow";
 import useCodexParserWorkflow from "./codex-parsing-workflow";
@@ -32,7 +32,6 @@ const useParsingWorkflow = ({
     const Type_ALI213 = await parseBinFileForAchievements();
     if (Type_ALI213 && Type_ALI213.length > 0) {
       console.log("ITS A ALI213 CRACK");
-
       await LoopAndUpdate(Type_ALI213, appid);
     }
     const Type_RUNE = await parseRuneFolder();
@@ -118,8 +117,6 @@ const useParsingWorkflow = ({
         name: achievement.name,
         achievedAt: achievement.achievedAt,
       });
-      // last update
-      console.log(Boolean(parsedData[i + 1]), Boolean(data), i);
       if (data && !parsedData[i + 1]) {
         console.log("last update", data);
         const achievementsStore = await load("achievements.json");
