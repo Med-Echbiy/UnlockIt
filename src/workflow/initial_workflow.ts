@@ -14,8 +14,8 @@ const useInitialWorkflow = () => {
         load("my-games.json"),
         load("achievements.json"),
       ]);
-      store.clear();
-      achievements_store.clear();
+      // store.clear();
+      // achievements_store.clear();
       const [data, data_achievement] = await Promise.all([
         store.entries(),
         achievements_store.entries(),
@@ -24,7 +24,7 @@ const useInitialWorkflow = () => {
       const objAchievements = Object.fromEntries(data_achievement);
       console.log({ obj, objAchievements });
 
-      for (const [key, value] of Object.entries(obj)) {
+      for (const [, value] of Object.entries(obj)) {
         addGame(value as GameStoreData);
       }
       for (const [key, value] of Object.entries(objAchievements)) {

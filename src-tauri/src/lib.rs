@@ -36,8 +36,8 @@ fn greet(name: &str) -> String {
 async fn fetch_achievements(api_key: String, appid: String) -> Result<serde_json::Value, String> {
     // Use GetSchemaForGame instead of GetPlayerAchievements since we don't have a steam_id
     let url = format!(
-        "https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid={}&key={}",
-        appid, api_key,
+        "https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid={}&key={}&l={}",
+        appid, api_key,"english"
     );
 
     println!("Fetching from URL: {}", url);
@@ -315,7 +315,7 @@ async fn stop_playtime_tracking(
         .app_data_dir()
         .map_err(|e| format!("Could not get app data directory: {}", e))?;
     
-    let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
+    let playtime_file = app_data_dir.join("Playtime").join("playtimes.json");
     save_playtime(&playtime_file, &appid, final_playtime).await?;
     
     Ok(final_playtime)

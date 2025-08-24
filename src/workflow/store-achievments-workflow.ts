@@ -1,6 +1,16 @@
 import { Achievement, SteamSchemaResponse } from "@/types/achievements";
-import { appDataDir } from "@tauri-apps/api/path";
+import { appDataDir, appLocalDataDir } from "@tauri-apps/api/path";
 import { writeFile, mkdir, readFile } from "@tauri-apps/plugin-fs";
+
+// Helper to join paths safely regardless of trailing/leading slashes
+function joinPath(base: string, ...parts: string[]) {
+  const useBackslash = base.includes("\\");
+  const sep = useBackslash ? "\\" : "/";
+  const normalize = (s: string) => s.replace(/^[\\/]+|[\\/]+$/g, "");
+  const b = base.replace(/[\\/]+$/g, "");
+  const rest = parts.map((p) => normalize(p));
+  return [b, ...rest].filter(Boolean).join(sep);
+}
 import useCacheImageWorkflow from "./cache-image-workflow";
 
 interface StoreJsonOptions {
@@ -8,13 +18,13 @@ interface StoreJsonOptions {
 }
 
 const useStoreAchievements = () => {
-  const { downloadImage, loadImage } = useCacheImageWorkflow();
+  const { downloadImage } = useCacheImageWorkflow();
   async function storeJson(
     data: SteamSchemaResponse,
     options: StoreJsonOptions
   ) {
-    const appDir = await appDataDir();
-    const dir = `${appDir}achievements`;
+    const appDir = await appLocalDataDir();
+    const dir = joinPath(appDir, "achievements");
     const achievements = await storeAchievementIcons(
       data.game.availableGameStats?.achievements || []
     );
@@ -22,20 +32,24 @@ const useStoreAchievements = () => {
     const fileName = options.fileName ? options.fileName : "achievements.json";
     // Ensure directory exists
     await mkdir(dir, { recursive: true });
-    const filePath = `${dir}/${fileName}`;
+    const filePath = joinPath(dir, fileName);
     const json = JSON.stringify(data, null, 2);
     await writeFile(filePath, new TextEncoder().encode(json));
     return filePath;
   }
   async function cacheAchievementIcons(ach: Achievement) {
+    let iconUrl;
+    let icongrayUrl;
     if (ach.icon) {
-      await downloadImage(ach.icon, `icon_${ach.name}.jpg`);
+      iconUrl = await downloadImage(ach.icon, `icon_${ach.name}.jpg`);
     }
     if (ach.icongray) {
-      await downloadImage(ach.icongray, `icongray_${ach.name}.jpg`);
+      icongrayUrl = await downloadImage(
+        ach.icongray,
+        `icongray_${ach.name}.jpg`
+      );
     }
-    const iconUrl = await loadImage(`icon_${ach.name}.jpg`);
-    const icongrayUrl = await loadImage(`icongray_${ach.name}.jpg`);
+
     return { iconUrl, icongrayUrl };
   }
   async function storeAchievementIcons(achievements: Achievement[]) {
@@ -47,10 +61,18 @@ const useStoreAchievements = () => {
     );
     return newAchievements;
   }
-  async function unlockAchievement(app_id: string, { name }: { name: string }) {
+  async function unlockAchievement(
+    app_id: string,
+    { name, achievedAt }: { name: string; achievedAt: string }
+  ) {
     // Use the appid to get the achievement file
-    const dir = await appDataDir();
-    const filePath = `${dir}achievements/achievements_${app_id}.json`;
+    const dir = await appLocalDataDir();
+    console.log({ dir });
+    const filePath = joinPath(
+      dir,
+      "achievements",
+      `achievements_${app_id}.json`
+    );
     let getFile;
     try {
       getFile = await readFile(filePath);
@@ -71,7 +93,9 @@ const useStoreAchievements = () => {
     const achievements: Achievement[] =
       parsed.game?.availableGameStats?.achievements || [];
     const updateAchievements = achievements.map((ach) =>
-      ach.name === name ? { ...ach, hidden: 1 } : ach
+      ach.name === name
+        ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: achievedAt }
+        : ach
     );
     // Update the file, preserving all other game data
     const updated = {

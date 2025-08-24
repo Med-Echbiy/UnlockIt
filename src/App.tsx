@@ -16,29 +16,35 @@ function App() {
   const init = useInitialWorkflow();
   return (
     <Router>
-      <AnimatedContent variant='slide'>
-        {/* <Sidebar> */}
-        <Routes>
-          <Route path='/' element={<Home />} />
-          <Route path='/games' element={<Games />} />
-          {/* <Route path='/settings' element={<Settings />} /> */}
-          <Route path='/game/:id' element={<GameDetails />} />
-        </Routes>
-        {/* </Sidebar> */}
-        {open && <SettingsDialog />}
-        <DockContainer />
-        <Toaster
-          position='top-center'
-          toastOptions={{
-            style: {
-              background: "hsl(var(--background))",
-              border: "1px solid hsl(var(--border))",
-              color: "hsl(var(--foreground))",
-            },
-          }}
-          className='toaster group'
-        />
-      </AnimatedContent>
+      <div className='flex flex-col min-h-screen'>
+        <div className='flex-1 flex flex-col'>
+          <AnimatedContent variant='slide'>
+            {/* <Sidebar> */}
+            <Routes>
+              <Route path='/' element={<Home />} />
+              <Route path='/games' element={<Games />} />
+              {/* <Route path='/settings' element={<Settings />} /> */}
+              <Route path='/game/:id' element={<GameDetails />} />
+            </Routes>
+            {/* </Sidebar> */}
+            {open && <SettingsDialog />}
+            <Toaster
+              position='top-center'
+              toastOptions={{
+                style: {
+                  background: "hsl(var(--background))",
+                  border: "1px solid hsl(var(--border))",
+                  color: "hsl(var(--foreground))",
+                },
+              }}
+              className='toaster group'
+            />
+          </AnimatedContent>
+        </div>
+        <div className='mt-auto'>
+          <DockContainer />
+        </div>
+      </div>
     </Router>
   );
 }

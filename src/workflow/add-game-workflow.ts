@@ -9,13 +9,24 @@ import useRequiredDataStore from "@/store/required-data-store";
 import { toast } from "sonner";
 import useStoreAchievements from "./store-achievments-workflow";
 import { SteamSchemaResponse } from "@/types/achievements";
+import useAchievementsStore from "@/store/achievments-store";
+import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
 
 const useAddGameWorkflow = () => {
   const { addGame } = useMyGamesStore();
-  const { downloadImage, loadImage } = useCacheImageWorkflow();
-  const { getSteamApiKey } = useRequiredDataStore();
+  const { addAchievement } = useAchievementsStore();
+  const { downloadImage } = useCacheImageWorkflow();
+
   const { storeJson } = useStoreAchievements();
+  const { getSteamApiKey } = useRequiredDataStore();
   async function getGamePath() {
+    if (!getSteamApiKey()) {
+      return toast.error("Please Make Sure to include Your API Key", {
+        style: {
+          background: "rgb(185 28 28)",
+        },
+      });
+    }
     const gamePath = await open({
       title: "Select Game Executable",
       filters: [
@@ -32,7 +43,9 @@ const useAddGameWorkflow = () => {
     }
     console.log({ data: getGameNameAndDir(gamePath) });
     let { name, dir } = getGameNameAndDir(gamePath);
-    const appId = await extractAppIdFromSteamEmuIni(dir);
+    const appId =
+      (await extractAppIdFromSteamEmuIni(dir)) ||
+      (await extractRealAppIdFromOnlineFixIni(dir));
     console.log({ appId, name, dir });
     let metadata: SteamMetadataMinimal | null = null;
     if (appId) {
@@ -88,14 +101,17 @@ const useAddGameWorkflow = () => {
           String(steam_appid)
         );
         addGame(data);
+        if (achievements) {
+          addAchievement({ ...achievements, gameId: steam_appid });
+        }
         const store = await load("my-games.json");
         await store.set(`game_${steam_appid}`, data);
         await store.save();
         const achievements_store = await load("achievements.json");
-        await achievements_store.set(
-          `achievements_${steam_appid}`,
-          achievements
-        );
+        await achievements_store.set(`achievements_${steam_appid}`, {
+          ...achievements,
+          gameId: steam_appid,
+        });
         await achievements_store.save();
         return true;
       }
@@ -116,7 +132,7 @@ const useAddGameWorkflow = () => {
         appid: app_id,
       });
       console.log({ result: result });
-      const jsonFilePath = await storeJson(result, {
+      await storeJson(result, {
         fileName: `achievements_${app_id}.json`,
       });
       return result;

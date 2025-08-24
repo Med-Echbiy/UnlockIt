@@ -3,6 +3,7 @@
 
 export interface SteamSchemaResponse {
   game: GameSchema;
+  gameId: number;
 }
 
 export interface GameSchema {
@@ -31,6 +32,7 @@ export interface Achievement {
   icon?: string;
   // URL to the gray (locked) icon
   icongray?: string;
+  achievedAt?: string;
 }
 
 export interface GameStat {
