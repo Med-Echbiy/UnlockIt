@@ -12,10 +12,11 @@ import useInitialWorkflow from "./workflow/initial_workflow";
 import GameDetails from "./components/main/Game/game-details";
 import { GamingLoader } from "./components/main/shared/add-game-loading";
 import ConfirmationDialog from "./components/main/shared/confirmation-dialog";
+import CheckConnection from "./components/main/shared/check-connection";
 
 function App() {
   const { open } = settingsModalStore();
-  const init = useInitialWorkflow();
+  useInitialWorkflow();
   return (
     <Router>
       <div className='flex flex-col min-h-screen'>
@@ -48,6 +49,7 @@ function App() {
           <DockContainer />
         </div>
         <ConfirmationDialog />
+        <CheckConnection />
       </div>
     </Router>
   );
