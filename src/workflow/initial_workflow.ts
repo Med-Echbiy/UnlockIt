@@ -9,6 +9,7 @@ const useInitialWorkflow = () => {
   const { addGame } = useMyGamesStore();
   const { addAchievement, setTrackedAchievementsFiles } =
     useAchievementsStore();
+
   //
   const [myGamesStore, setMyGames] = useState<Store | null>(null);
   const [achievementsStore, setAchievements] = useState<Store | null>(null);
@@ -49,7 +50,7 @@ const useInitialWorkflow = () => {
       setTrackedAchievementsFiles(trackedList);
     })();
   }, []);
-
+  useEffect(() => {}, []);
   return {
     myGamesStore,
     achievementsStore,

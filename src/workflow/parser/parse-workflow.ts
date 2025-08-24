@@ -23,7 +23,10 @@ const useParsingWorkflow = ({
     appid,
     exePath,
   });
-  async function parseAchievements() {
+  async function parseAchievements(
+    app_id: number = appid,
+    exe_path: string = exePath
+  ) {
     // Why no early return?
     // If multiple sources provide achievements, combine their results before updating.
     // This ensures no duplicate achievements and all sources are considered.
@@ -32,22 +35,22 @@ const useParsingWorkflow = ({
     const Type_ALI213 = await parseBinFileForAchievements();
     if (Type_ALI213 && Type_ALI213.length > 0) {
       console.log("ITS A ALI213 CRACK");
-      await LoopAndUpdate(Type_ALI213, appid);
+      await LoopAndUpdate(Type_ALI213, app_id);
     }
     const Type_RUNE = await parseRuneFolder();
     if (Type_RUNE && Type_RUNE.length > 0) {
       console.log("ITS A RUNE CRACK");
-      await LoopAndUpdate(Type_RUNE, appid);
+      await LoopAndUpdate(Type_RUNE, app_id);
     }
     const Type_CODEX = await parseCodexFolder();
     if (Type_CODEX && Type_CODEX.length > 0) {
       console.log("ITS A CODEX CRACK");
-      await LoopAndUpdate(Type_CODEX, appid);
+      await LoopAndUpdate(Type_CODEX, app_id);
     }
     const Type_ONLINE_FIX = await parseOnlineFixFolder();
     if (Type_ONLINE_FIX && Type_ONLINE_FIX.length > 0) {
       console.log("ITS A ONLINE FIX CRACK");
-      await LoopAndUpdate(Type_ONLINE_FIX, appid);
+      await LoopAndUpdate(Type_ONLINE_FIX, app_id);
     }
   }
   async function unlockAchievement(

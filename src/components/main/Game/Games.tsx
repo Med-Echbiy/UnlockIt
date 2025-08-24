@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import useMyGamesStore from "@/store/my-games-store";
 import { GameCard } from "./game-card";
 import { Gamepad2 } from "lucide-react";
-
 function Games() {
   const { games } = useMyGamesStore();
 
@@ -39,10 +38,12 @@ function Games() {
           variants={containerVariants}
           initial='hidden'
           animate='visible'
-          className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 p-4'
+          className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 p-4 items-stretch'
         >
           {games.map((game, index) => (
-            <GameCard key={game.appId} game={game} index={index} />
+            <div key={game.appId} className='h-full flex flex-col'>
+              <GameCard game={game} index={index} />
+            </div>
           ))}
         </motion.div>
 

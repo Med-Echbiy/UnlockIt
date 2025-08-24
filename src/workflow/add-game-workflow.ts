@@ -125,6 +125,7 @@ const useAddGameWorkflow = () => {
           setAddGameLoadingProgress(100);
           // stale for one second
           await new Promise((resolve) => setTimeout(resolve, 1000));
+
           setAddGameLoading(false);
           setGameLoadingName("");
           return true;

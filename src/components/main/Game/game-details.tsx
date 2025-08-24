@@ -211,6 +211,9 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
       confirmationModal.onCancel();
     });
   }
+  // useEffect(() => {
+  //   parseAchievements();
+  // }, []);
   return (
     <>
       <Card>
