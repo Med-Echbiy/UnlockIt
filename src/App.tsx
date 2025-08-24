@@ -10,6 +10,7 @@ import SettingsDialog from "./components/main/Settings/Settings";
 import { Toaster } from "./components/ui/sonner";
 import useInitialWorkflow from "./workflow/initial_workflow";
 import GameDetails from "./components/main/Game/game-details";
+import { GamingLoader } from "./components/main/shared/add-game-loading";
 
 function App() {
   const { open } = settingsModalStore();
@@ -28,6 +29,7 @@ function App() {
             </Routes>
             {/* </Sidebar> */}
             {open && <SettingsDialog />}
+            <GamingLoader />
             <Toaster
               position='top-center'
               toastOptions={{

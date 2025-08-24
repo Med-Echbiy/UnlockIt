@@ -11,8 +11,11 @@ import useStoreAchievements from "./store-achievments-workflow";
 import { SteamSchemaResponse } from "@/types/achievements";
 import useAchievementsStore from "@/store/achievments-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
+import useUIStateStore from "@/store/ui-state-store";
 
 const useAddGameWorkflow = () => {
+  const { setAddGameLoading, setGameLoadingName, setAddGameLoadingProgress } =
+    useUIStateStore();
   const { addGame } = useMyGamesStore();
   const { addAchievement } = useAchievementsStore();
   const { downloadImage } = useCacheImageWorkflow();
@@ -20,6 +23,7 @@ const useAddGameWorkflow = () => {
   const { storeJson } = useStoreAchievements();
   const { getSteamApiKey } = useRequiredDataStore();
   async function getGamePath() {
+    setAddGameLoadingProgress(5);
     if (!getSteamApiKey()) {
       return toast.error("Please Make Sure to include Your API Key", {
         style: {
@@ -46,18 +50,22 @@ const useAddGameWorkflow = () => {
     const appId =
       (await extractAppIdFromSteamEmuIni(dir)) ||
       (await extractRealAppIdFromOnlineFixIni(dir));
-    console.log({ appId, name, dir });
+
     let metadata: SteamMetadataMinimal | null = null;
     if (appId) {
+      setGameLoadingName(name);
+      setAddGameLoading(true);
+      setAddGameLoadingProgress(30);
       metadata = await invoke<SteamMetadataMinimal>(
         "fetch_game_metadata_from_steam",
         {
           appId: appId,
         }
       );
-
+      setAddGameLoadingProgress(50);
       if (metadata) {
         name = metadata.name;
+        setGameLoadingName(name);
         // cache image and return path
         const [cover, backgroundImg] = await Promise.all([
           downloadImage(metadata.header_image, `cover_${appId}.jpg`),
@@ -68,6 +76,7 @@ const useAddGameWorkflow = () => {
         //   loadImage(`background_${appId}.jpg`),
         // ]);
         // console.log({ coverImageUrl, backgroundImageUrl });
+        setAddGameLoadingProgress(75);
         const {
           capsule_image,
           capsule_imagev5,
@@ -100,22 +109,30 @@ const useAddGameWorkflow = () => {
         const achievements = await getGameSteamAchievementSchema(
           String(steam_appid)
         );
-        addGame(data);
-        if (achievements) {
+        setAddGameLoadingProgress(89);
+        if (achievements && data) {
+          addGame(data);
           addAchievement({ ...achievements, gameId: steam_appid });
+          const store = await load("my-games.json");
+          await store.set(`game_${steam_appid}`, data);
+          await store.save();
+          const achievements_store = await load("achievements.json");
+          await achievements_store.set(`achievements_${steam_appid}`, {
+            ...achievements,
+            gameId: steam_appid,
+          });
+          await achievements_store.save();
+          setAddGameLoadingProgress(100);
+          // stale for one second
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          setAddGameLoading(false);
+          setGameLoadingName("");
+          return true;
         }
-        const store = await load("my-games.json");
-        await store.set(`game_${steam_appid}`, data);
-        await store.save();
-        const achievements_store = await load("achievements.json");
-        await achievements_store.set(`achievements_${steam_appid}`, {
-          ...achievements,
-          gameId: steam_appid,
-        });
-        await achievements_store.save();
-        return true;
       }
     }
+    setAddGameLoading(false);
+    setGameLoadingName("");
     return false;
   }
   async function getGameSteamAchievementSchema(app_id: string) {
