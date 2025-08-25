@@ -446,6 +446,23 @@ fn try_spawn_elevated(exe_path: &str) -> Result<std::process::Child, String> {
 //
 #[tauri::command]
 fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), String> {
+    // Validate paths first
+    let valid_paths: Vec<String> = paths.into_iter()
+        .filter(|path| {
+            let path_obj = Path::new(path);
+            if path_obj.exists() {
+                true
+            } else {
+                println!("Warning: Path does not exist, skipping: {}", path);
+                false
+            }
+        })
+        .collect();
+    
+    if valid_paths.is_empty() {
+        return Err("No valid paths provided for tracking".to_string());
+    }
+
     // Spawn a thread to run the watcher so the command returns immediately.
     thread::spawn(move || {
         let (tx, rx) = std_channel();
@@ -454,7 +471,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
         // Use a config that compares contents and polls periodically to reliably catch content-only updates
         let config = NotifyConfig::default()
             .with_compare_contents(true)
-            .with_poll_interval(Duration::from_secs(15));
+            .with_poll_interval(Duration::from_secs(2));
 
         let watcher_result: notify::Result<RecommendedWatcher> = RecommendedWatcher::new(
             move |res| {
@@ -472,17 +489,51 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
             }
         };
 
-        // Register all paths
-        for p in paths.iter() {
+        // Store previous file contents for diff comparison
+        let file_contents = Arc::new(Mutex::new(HashMap::<String, String>::new()));
+        
+        // Store last event time for debouncing
+        let last_event_time = Arc::new(Mutex::new(HashMap::<String, Instant>::new()));
+        
+        // Store active debounce tasks to prevent multiple spawns
+        let active_tasks = Arc::new(Mutex::new(HashMap::<String, bool>::new()));
+        
+        let debounce_duration = Duration::from_millis(1000); // Increased to 1 second
+
+        // Register all valid paths and read initial content
+        for p in valid_paths.iter() {
             let path = Path::new(p);
             if let Err(e) = watcher.watch(path, RecursiveMode::NonRecursive) {
                 println!("Failed to watch path {}: {:?}", p, e);
             } else {
                 println!("Watching: {}", p);
+                // Read initial content - handle all file types (text and binary)
+                let initial_content = match std::fs::read_to_string(path) {
+                    Ok(content) => {
+                        println!("Read text content for {}: {} chars", p, content.len());
+                        content
+                    }
+                    Err(_) => {
+                        // If reading as text fails, try reading as binary and convert
+                        match std::fs::read(path) {
+                            Ok(bytes) => {
+                                println!("Read binary content for {}: {} bytes", p, bytes.len());
+                                String::from_utf8_lossy(&bytes).to_string()
+                            }
+                            Err(e) => {
+                                println!("Failed to read file {}: {:?}", p, e);
+                                String::new()
+                            }
+                        }
+                    }
+                };
+                
+                let mut contents = file_contents.lock().unwrap();
+                contents.insert(p.clone(), initial_content);
             }
         }
 
-        // Receive events and emit to frontend
+        // Receive events and emit to frontend with debouncing
         loop {
             match rx.recv() {
                 Ok(Ok(event)) => {
@@ -491,12 +542,124 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                         .get(0)
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_default();
-                    let kind = format!("{:?}", event.kind);
-                    let payload = json!({"path": path, "kind": kind});
-                    // emit to all open windows using emit_all
-                    if let Err(e) = app_handle.emit("file-change", payload) {
-                        println!("Failed to emit file-change: {:?}", e);
+                    
+                    println!("🔥 FILE EVENT DETECTED: {:?} for path: {}", event.kind, path);
+                    
+                    // Skip if we already have an active task for this path
+                    {
+                        let mut tasks = active_tasks.lock().unwrap();
+                        if tasks.get(&path).unwrap_or(&false) == &true {
+                            println!("Skipping duplicate event for path: {}", path);
+                            continue;
+                        }
+                        tasks.insert(path.clone(), true);
                     }
+                    
+                    // Update last event time for this path
+                    {
+                        let mut times = last_event_time.lock().unwrap();
+                        times.insert(path.clone(), Instant::now());
+                    }
+                    
+                    // Spawn a task to handle the debounced event
+                    let app_handle_clone = app_handle.clone();
+                    let path_clone = path.clone();
+                    let file_contents_clone = Arc::clone(&file_contents);
+                    let last_event_time_clone = Arc::clone(&last_event_time);
+                    let active_tasks_clone = Arc::clone(&active_tasks);
+                    
+                    thread::spawn(move || {
+                        // Wait for debounce duration
+                        thread::sleep(debounce_duration);
+                        
+                        // Check if this is still the latest event for this path
+                        let should_process = {
+                            let times = last_event_time_clone.lock().unwrap();
+                            times.get(&path_clone)
+                                .map(|&last_time| {
+                                    let elapsed = last_time.elapsed();
+                                    elapsed >= debounce_duration
+                                })
+                                .unwrap_or(false)
+                        };
+                        
+                        if should_process {
+                            println!("Processing file change for: {}", path_clone);
+                            
+                            // Read current file content - handle all file types (text and binary)
+                            let new_content = match std::fs::read_to_string(&path_clone) {
+                                Ok(content) => {
+                                    println!("Read text content: {} chars", content.len());
+                                    content
+                                }
+                                Err(_) => {
+                                    // If reading as text fails, try reading as binary and convert
+                                    match std::fs::read(&path_clone) {
+                                        Ok(bytes) => {
+                                            println!("Read binary content: {} bytes", bytes.len());
+                                            String::from_utf8_lossy(&bytes).to_string()
+                                        }
+                                        Err(e) => {
+                                            println!("Failed to read file {}: {:?}", path_clone, e);
+                                            String::new()
+                                        }
+                                    }
+                                }
+                            };
+                            
+                            if !new_content.is_empty() {
+                                let old_content = {
+                                    let contents = file_contents_clone.lock().unwrap();
+                                    contents.get(&path_clone).cloned().unwrap_or_default()
+                                };
+                                
+                                println!("Old content length: {}, New content length: {}", old_content.len(), new_content.len());
+                                
+                                // Only process if content actually changed
+                                if old_content != new_content {
+                                    // Calculate diff to get added lines
+                                    let added_lines = get_added_lines(&old_content, &new_content);
+                                    
+                                    // Update stored content
+                                    {
+                                        let mut contents = file_contents_clone.lock().unwrap();
+                                        contents.insert(path_clone.clone(), new_content.clone());
+                                    }
+                                    
+                                    println!("File changed: {}, added {} lines", path_clone, added_lines.len());
+                                    println!("Added lines: {:?}", added_lines);
+                                    
+                                    let kind = "FileModified";
+                                    let payload = json!({
+                                        "path": path_clone,
+                                        "kind": kind,
+                                        "added_lines": added_lines,
+                                        "content": new_content
+                                    });
+                                    
+                                    println!("Emitting file-change event...");
+                                    // emit to all open windows using emit_all
+                                    if let Err(e) = app_handle_clone.emit("file-change", payload) {
+                                        println!("Failed to emit file-change: {:?}", e);
+                                    } else {
+                                        println!("Successfully emitted file-change event!");
+                                    }
+                                } else {
+                                    println!("Content unchanged for: {}", path_clone);
+                                }
+                            } else {
+                                println!("Empty content read for: {}", path_clone);
+                            }
+                        } else {
+                            println!("Skipping processing (not latest event) for: {}", path_clone);
+                        }
+                        
+                        // Mark task as completed
+                        {
+                            let mut tasks = active_tasks_clone.lock().unwrap();
+                            tasks.insert(path_clone, false);
+                        }
+                    });
                 }
                 Ok(Err(e)) => {
                     println!("Watcher error: {:?}", e);
@@ -512,7 +675,86 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
     Ok(())
 }
 
+// Helper function to get added lines by comparing old and new content
+fn get_added_lines(old_content: &str, new_content: &str) -> Vec<String> {
+    let old_lines: Vec<&str> = old_content.lines().collect();
+    let new_lines: Vec<&str> = new_content.lines().collect();
+    
+    let mut added_lines = Vec::new();
+    
+    // Simple diff algorithm - find lines that exist in new but not in old
+    for (line_num, new_line) in new_lines.iter().enumerate() {
+        let line_number = line_num + 1;
+        
+        // Check if this line is new by comparing with old content at same position
+        if line_num >= old_lines.len() {
+            // Line added at the end
+            added_lines.push(format!("Line {}: {}", line_number, new_line));
+        } else if old_lines[line_num] != *new_line {
+            // Line modified or replaced
+            if !old_lines.contains(new_line) {
+                added_lines.push(format!("Line {}: {}", line_number, new_line));
+            }
+        }
+    }
+    
+    // Also check for completely new lines inserted in the middle
+    if new_lines.len() > old_lines.len() {
+        let diff_count = new_lines.len() - old_lines.len();
+        for i in 0..diff_count {
+            let potential_new_line_index = old_lines.len() + i;
+            if potential_new_line_index < new_lines.len() {
+                let line_number = potential_new_line_index + 1;
+                let line_content = new_lines[potential_new_line_index];
+                if !old_lines.contains(&line_content) {
+                    added_lines.push(format!("Line {}: {}", line_number, line_content));
+                }
+            }
+        }
+    }
+    
+    added_lines
+}
 
+#[tauri::command]
+async fn toast_notification(
+    icon_path: String,
+    game_name: String,
+    achievement_name: String,
+    sound_path: Option<String>,
+) -> Result<(), String> {
+    use tauri_winrt_notification::{Duration, Sound, Toast, IconCrop};
+    
+    // Create the toast notification with your app name instead of PowerShell
+    let mut toast = Toast::new("UnlockIt")
+        .title("Achievement Unlocked! 🏆")
+        .text1(&game_name)
+        .text2(&achievement_name)
+        .duration(Duration::Short);
+    
+    // Add icon if path is provided and file exists
+    if !icon_path.is_empty() && std::path::Path::new(&icon_path).exists() {
+        let icon_path_ref = std::path::Path::new(&icon_path);
+        toast = toast.icon(icon_path_ref, IconCrop::Square, "Achievement Icon");
+    }
+    
+    // Add sound if path is provided
+    if let Some(sound) = sound_path {
+        if !sound.is_empty() && std::path::Path::new(&sound).exists() {
+            toast = toast.sound(Some(Sound::Default));
+        } else {
+            toast = toast.sound(Some(Sound::Default));
+        }
+    } else {
+        toast = toast.sound(Some(Sound::Default));
+    }
+    
+    // Show the toast notification
+    toast.show().map_err(|e| format!("Failed to show toast notification: {}", e))?;
+    
+    println!("Toast notification shown for achievement: {} in game: {}", achievement_name, game_name);
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -531,8 +773,9 @@ pub fn run() {
             load_image,
             start_playtime_tracking,
             get_current_playtime,
-            stop_playtime_tracking
-            , track_files
+            stop_playtime_tracking,
+            track_files,
+            toast_notification
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

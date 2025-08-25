@@ -19,6 +19,7 @@ interface AchievementsStore {
   setTrackedAchievementsFiles: (
     files: { appid: number; filePath: string }[]
   ) => void;
+  getTrackedAchievementsFiles: () => { appid: number; filePath: string }[];
 }
 
 const useAchievementsStore = create<AchievementsStore>((set, get) => {
@@ -111,6 +112,10 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
       set(() => ({
         trackAchievementsFiles: files,
       }));
+    },
+
+    getTrackedAchievementsFiles: () => {
+      return get().trackAchievementsFiles;
     },
   };
 });

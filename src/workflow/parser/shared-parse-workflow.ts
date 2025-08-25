@@ -3,7 +3,8 @@ import useInitialWorkflow from "../initial_workflow";
 import useAchievementsStore from "@/store/achievements-store";
 
 const sharedParsingWorkflow = () => {
-  const { addTrackedFile } = useAchievementsStore();
+  const { addTrackedFile, getTrackedAchievementsFiles } =
+    useAchievementsStore();
   const { trackedAchievementsFilesStore } = useInitialWorkflow();
   // Your implementation here
   const checkExePath = async (exePath: string) => {
@@ -11,6 +12,14 @@ const sharedParsingWorkflow = () => {
     return check;
   };
   async function saveToTrackList(appid: number, filePath: string) {
+    // check if it already there
+    const check_exists = getTrackedAchievementsFiles().find(
+      (e) => e.filePath === filePath
+    );
+    if (check_exists) {
+      console.log("File already tracked:", filePath);
+      return;
+    }
     const trackedFiles = addTrackedFile(appid, filePath);
     await trackedAchievementsFilesStore?.set(
       "trackedAchievementsFiles",
