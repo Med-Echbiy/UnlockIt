@@ -13,10 +13,12 @@ import GameDetails from "./components/main/Game/game-details";
 import { GamingLoader } from "./components/main/shared/add-game-loading";
 import ConfirmationDialog from "./components/main/shared/confirmation-dialog";
 import CheckConnection from "./components/main/shared/check-connection";
+import useTrackingWorkflow from "./workflow/tracking-workflow";
 
 function App() {
   const { open } = settingsModalStore();
   useInitialWorkflow();
+  useTrackingWorkflow();
   return (
     <Router>
       <div className='flex flex-col min-h-screen'>

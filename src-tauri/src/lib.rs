@@ -454,7 +454,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
         // Use a config that compares contents and polls periodically to reliably catch content-only updates
         let config = NotifyConfig::default()
             .with_compare_contents(true)
-            .with_poll_interval(Duration::from_secs(1));
+            .with_poll_interval(Duration::from_secs(15));
 
         let watcher_result: notify::Result<RecommendedWatcher> = RecommendedWatcher::new(
             move |res| {
