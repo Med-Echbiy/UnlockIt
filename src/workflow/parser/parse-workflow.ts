@@ -116,11 +116,12 @@ const useParsingWorkflow = ({
         name: achievement.name,
         achievedAt: achievement.achievedAt,
       });
-      if (data && !parsedData[i + 1]) {
+      if (data) {
         const achievementsStore = await load("achievements.json");
         await achievementsStore.set(`achievements_${appid}`, data);
         await achievementsStore.save();
-        updateAchievement(appid, data);
+        // Force store update by passing a new reference to trigger React re-render
+        updateAchievement(appid, { ...data });
       }
     }
   }

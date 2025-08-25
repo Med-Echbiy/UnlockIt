@@ -60,29 +60,30 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
     },
     // make them defaultvalue 0 and achievedat 0
     resetAchievementsBasedOnAppid: (appid: number) => {
-      const achievements = get().achievements.map((ach) => {
-        if (Number(ach.gameId) === appid) {
-          return {
-            ...ach,
-            game: {
-              ...ach.game,
-              availableGameStats: {
-                ...ach.game?.availableGameStats,
-                achievements: ach.game?.availableGameStats?.achievements?.map(
-                  (a) => ({
-                    ...a,
-                    defaultvalue: 0,
-                    achievedAt: "0",
-                  })
-                ),
+      set((state) => ({
+        achievements: state.achievements.map((ach) => {
+          if (Number(ach.gameId) === appid) {
+            return {
+              ...ach,
+              game: {
+                ...ach.game,
+                availableGameStats: {
+                  ...ach.game?.availableGameStats,
+                  achievements: ach.game?.availableGameStats?.achievements?.map(
+                    (a) => ({
+                      ...a,
+                      defaultvalue: 0,
+                      achievedAt: "0",
+                    })
+                  ),
+                },
               },
-            },
-          };
-        }
-        return ach;
-      });
-      set({ achievements });
-      return achievements;
+            };
+          }
+          return ach;
+        }),
+      }));
+      return get().achievements;
     },
     // ----------
     trackAchievementsFiles: [],

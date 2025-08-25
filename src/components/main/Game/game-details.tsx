@@ -179,7 +179,7 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
         ?.availableGameStats?.achievements
   );
   const achievements = Array.isArray(rawAchievements) ? rawAchievements : [];
-  const unlocked = achievements.filter((e) => e?.defaultvalue !== 0).length;
+  const unlocked = achievements.filter((e) => e?.defaultvalue === 1).length;
   const total = achievements.length;
   const [filter, setFilter] = useState<
     "all" | "unlocked" | "locked" | "hidden"
@@ -190,7 +190,7 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
     : filter === "all"
     ? achievements
     : filter === "unlocked"
-    ? achievements.filter((a) => a?.defaultvalue !== 0)
+    ? achievements.filter((a) => a?.defaultvalue === 1)
     : filter === "locked"
     ? achievements.filter((a) => a?.defaultvalue === 0)
     : achievements.filter((a) => a?.hidden === 1);
@@ -301,7 +301,7 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
     })();
   }, []);
 
-  const isUnlocked = achievement.defaultvalue !== 0;
+  const isUnlocked = achievement.defaultvalue === 1;
   const isHidden = achievement.hidden === 1;
 
   return (

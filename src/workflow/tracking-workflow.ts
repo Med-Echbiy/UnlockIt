@@ -27,6 +27,12 @@ const useTrackingWorkflow = () => {
     console.log("TrackingWorkflow useEffect triggered");
     console.log("trackAchievementsFiles:", trackAchievementsFiles);
 
+    // Set previous achievements at the start to ensure we have a baseline for comparison
+    if (previousAchievement.length === 0 && achievements.length > 0) {
+      console.log("Setting initial previous achievements state");
+      setPreviousAchievement([...achievements]); // Create a deep copy
+    }
+
     const getPaths = trackAchievementsFiles.map((item) => item.filePath);
     const pathsString = JSON.stringify(getPaths.sort()); // Sort for consistent comparison
 
@@ -62,12 +68,7 @@ const useTrackingWorkflow = () => {
     } else {
       console.log("Watcher already setup for these paths, skipping...");
     }
-
-    // Set previous achievements only once when the component mounts
-    if (previousAchievement.length === 0 && achievements.length > 0) {
-      setPreviousAchievement(achievements);
-    }
-  }, [trackAchievementsFiles.length]); // Only depend on the length, not the entire array
+  }, [trackAchievementsFiles.length, achievements.length]); // Add achievements.length to dependency
 
   // Separate effect for setting up the event listener (only once)
   useEffect(() => {
@@ -104,12 +105,17 @@ const useTrackingWorkflow = () => {
           // Parse achievements - this function returns void but updates the store
           parseAchievements(appId, exePath)
             .then(async () => {
+              // Wait a bit for the store to update
+              await new Promise((resolve) => setTimeout(resolve, 100));
+
               // Get the current achievements from the store after parsing
-              const currentAchievements = achievements.find(
-                (ach) => ach.gameId === appId
+              const { achievements: updatedAchievements } =
+                useAchievementsStore.getState();
+              const currentAchievements = updatedAchievements.find(
+                (ach) => Number(ach.gameId) === Number(appId)
               );
               const previousAch = previousAchievement.find(
-                (ach) => ach.gameId === appId
+                (ach) => Number(ach.gameId) === Number(appId)
               );
 
               if (currentAchievements && previousAch) {
@@ -127,27 +133,37 @@ const useTrackingWorkflow = () => {
                   (current) =>
                     !previousUnlocked.some((prev) => prev.name === current.name)
                 );
-                console.log({ newlyUnlocked });
-                toast("New achievements unlocked!");
-                // Show notification for each newly unlocked achievement
-                for (const achievement of newlyUnlocked) {
-                  await invoke("toast_notification", {
-                    iconPath:
-                      game.header_image ||
-                      game.capsule_image ||
-                      "path/to/default/icon.png",
-                    gameName: game.name || "Unknown Game",
-                    achievementName:
-                      achievement.displayName ||
-                      achievement.name ||
-                      "Unknown Achievement",
-                    soundPath: "xbox-rare.mp3", // optional
-                  });
+                console.log({
+                  newlyUnlocked,
+                  currentUnlocked: currentUnlocked.length,
+                  previousUnlocked: previousUnlocked.length,
+                });
+
+                if (newlyUnlocked.length > 0) {
+                  toast(`${newlyUnlocked.length} new achievements unlocked!`);
+
+                  // Show notification for each newly unlocked achievement
+                  for (const achievement of newlyUnlocked) {
+                    await invoke("toast_notification", {
+                      iconPath:
+                        game.header_image ||
+                        game.capsule_image ||
+                        "path/to/default/icon.png",
+                      gameName: game.name || "Unknown Game",
+                      achievementName:
+                        achievement.displayName ||
+                        achievement.name ||
+                        "Unknown Achievement",
+                      soundPath: "xbox-rare.mp3", // optional
+                    });
+                  }
                 }
               }
 
-              // Update previous achievements with current state
-              setPreviousAchievement(achievements);
+              // Update previous achievements with current state - use a deep copy
+              setPreviousAchievement([
+                ...useAchievementsStore.getState().achievements,
+              ]);
             })
             .catch((error) => {
               console.error("Error parsing achievements:", error);

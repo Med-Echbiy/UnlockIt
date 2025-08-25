@@ -47,8 +47,8 @@ const useInitialWorkflow = () => {
         (await tracked_files_store.get("trackedAchievementsFiles")) || [];
       setTrackedAchievementsFiles(trackedList);
     })();
-  }, []);
-  useEffect(() => {}, []);
+  }, [addGame, addAchievement, setTrackedAchievementsFiles]); // Add dependencies to avoid ESLint warnings
+
   return {
     myGamesStore,
     achievementsStore,

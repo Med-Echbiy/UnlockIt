@@ -27,10 +27,18 @@ const useResetAchievementsWorkflow = (appid: number) => {
     }
     const BulkUpdate = resetAchievementsBasedOnAppid(appid);
     setTrackedAchievementsFiles(filesNotEffected);
-    await achievementsStore?.set(
-      `achievements_${appid}`,
-      BulkUpdate.find((e) => e.gameId === appid)
+
+    // Find the updated achievement data more safely
+    const updatedAchievementData = BulkUpdate.find(
+      (e) => Number(e.gameId) === Number(appid)
     );
+    if (updatedAchievementData && achievementsStore) {
+      await achievementsStore.set(
+        `achievements_${appid}`,
+        updatedAchievementData
+      );
+      await achievementsStore.save();
+    }
     // ...existing code...
     // reset achievements store
   };
