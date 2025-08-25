@@ -25,12 +25,9 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
             appid,
           });
           setPlaytime(currentPlaytime);
-        } catch (e) {
-          console.error("Failed to get current playtime:", e);
-        }
+        } catch (e) {}
       }, 1000);
     } catch (e) {
-      console.error("Failed to start playtime tracking:", e);
       throw e;
     }
   };
@@ -47,9 +44,7 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
           appid,
         });
         setPlaytime(finalPlaytime);
-      } catch (e) {
-        console.error("Failed to stop playtime tracking:", e);
-      }
+      } catch (e) {}
     }
 
     setIsRunning(false);
@@ -64,7 +59,6 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
         });
         setPlaytime(currentPlaytime);
       } catch (e) {
-        console.error("Failed to load initial playtime:", e);
         setPlaytime(0);
       }
     };

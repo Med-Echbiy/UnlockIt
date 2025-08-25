@@ -35,13 +35,11 @@ const useInitialWorkflow = () => {
       ]);
       const obj = Object.fromEntries(data);
       const objAchievements = Object.fromEntries(data_achievement);
-      console.log({ obj, objAchievements });
 
       for (const [, value] of Object.entries(obj)) {
         addGame(value as GameStoreData);
       }
       for (const [key, value] of Object.entries(objAchievements)) {
-        console.log({ key, value });
         addAchievement(value as SteamSchemaResponse);
       }
       //

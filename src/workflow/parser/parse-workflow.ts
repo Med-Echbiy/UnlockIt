@@ -34,22 +34,18 @@ const useParsingWorkflow = ({
     // Sorry english is not my first language :(
     const Type_ALI213 = await parseBinFileForAchievements();
     if (Type_ALI213 && Type_ALI213.length > 0) {
-      console.log("ITS A ALI213 CRACK");
       await LoopAndUpdate(Type_ALI213, app_id);
     }
     const Type_RUNE = await parseRuneFolder();
     if (Type_RUNE && Type_RUNE.length > 0) {
-      console.log("ITS A RUNE CRACK");
       await LoopAndUpdate(Type_RUNE, app_id);
     }
     const Type_CODEX = await parseCodexFolder();
     if (Type_CODEX && Type_CODEX.length > 0) {
-      console.log("ITS A CODEX CRACK");
       await LoopAndUpdate(Type_CODEX, app_id);
     }
     const Type_ONLINE_FIX = await parseOnlineFixFolder();
     if (Type_ONLINE_FIX && Type_ONLINE_FIX.length > 0) {
-      console.log("ITS A ONLINE FIX CRACK");
       await LoopAndUpdate(Type_ONLINE_FIX, app_id);
     }
   }
@@ -91,7 +87,7 @@ const useParsingWorkflow = ({
         ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: achievedAt }
         : ach
     );
-    console.log("=============");
+
     // Update the file, preserving all other game data
     const updated: SteamSchemaResponse = {
       ...parsed,
@@ -121,7 +117,6 @@ const useParsingWorkflow = ({
         achievedAt: achievement.achievedAt,
       });
       if (data && !parsedData[i + 1]) {
-        console.log("last update", data);
         const achievementsStore = await load("achievements.json");
         await achievementsStore.set(`achievements_${appid}`, data);
         await achievementsStore.save();

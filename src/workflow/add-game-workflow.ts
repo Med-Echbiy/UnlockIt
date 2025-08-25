@@ -45,7 +45,7 @@ const useAddGameWorkflow = () => {
     if (!gamePath) {
       return false;
     }
-    console.log({ data: getGameNameAndDir(gamePath) });
+
     let { name, dir } = getGameNameAndDir(gamePath);
     const appId =
       (await extractAppIdFromSteamEmuIni(dir)) ||
@@ -75,7 +75,7 @@ const useAddGameWorkflow = () => {
         //   loadImage(`cover_${appId}.jpg`),
         //   loadImage(`background_${appId}.jpg`),
         // ]);
-        // console.log({ coverImageUrl, backgroundImageUrl });
+        //
         setAddGameLoadingProgress(75);
         const {
           capsule_image,
@@ -149,7 +149,7 @@ const useAddGameWorkflow = () => {
         apiKey: apiKey.trim(),
         appid: app_id,
       });
-      console.log({ result: result });
+
       await storeJson(result, {
         fileName: `achievements_${app_id}.json`,
       });

@@ -7,7 +7,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
+use std::sync::mpsc::channel as std_channel;
+use std::path::Path;
+use serde_json::json;
+// notify crate is used to watch filesystem events
+use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
 
 // Structure to manage running processes and their playtimes
 #[derive(Default)]
@@ -142,7 +147,7 @@ async fn fetch_game_metadata_from_steam(appId: String) -> Result<serde_json::Val
             e, response_text
         )
     })?;
-    let mut app_data = if let Some(app_data) = json.get(&appId).and_then(|v| v.get("data")) {
+    let app_data = if let Some(app_data) = json.get(&appId).and_then(|v| v.get("data")) {
         app_data.clone()
     } else {
         serde_json::Value::Null
@@ -153,7 +158,7 @@ async fn fetch_game_metadata_from_steam(appId: String) -> Result<serde_json::Val
 #[tauri::command]
 fn load_image(path: String) -> Result<String, String> {
     use std::fs;
-    use base64::encode;
+    use base64::{engine::general_purpose, Engine};
 
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
 
@@ -170,7 +175,7 @@ fn load_image(path: String) -> Result<String, String> {
         "application/octet-stream"
     };
 
-    Ok(format!("data:{};base64,{}", mime, encode(bytes)))
+    Ok(format!("data:{};base64,{}", mime, general_purpose::STANDARD.encode(bytes)))
 }
 
 #[tauri::command]
@@ -210,7 +215,7 @@ async fn start_playtime_tracking(
     
     // Start the game process with elevation handling
     let child = try_spawn_with_elevation(&exe_path)?;
-    let child_id = child.id();
+    let _child_id = child.id();
     
     // Store process info
     {
@@ -438,6 +443,75 @@ fn try_spawn_elevated(exe_path: &str) -> Result<std::process::Child, String> {
 fn try_spawn_elevated(exe_path: &str) -> Result<std::process::Child, String> {
     Err("Elevation not supported on this platform".to_string())
 }
+//
+#[tauri::command]
+fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), String> {
+    // Spawn a thread to run the watcher so the command returns immediately.
+    thread::spawn(move || {
+        let (tx, rx) = std_channel();
+
+        // Create the watcher; the closure sends events to the channel
+        // Use a config that compares contents and polls periodically to reliably catch content-only updates
+        let config = NotifyConfig::default()
+            .with_compare_contents(true)
+            .with_poll_interval(Duration::from_secs(1));
+
+        let watcher_result: notify::Result<RecommendedWatcher> = RecommendedWatcher::new(
+            move |res| {
+                // send the result (Event or Error) through the channel
+                let _ = tx.send(res);
+            },
+            config,
+        );
+
+        let mut watcher = match watcher_result {
+            Ok(w) => w,
+            Err(e) => {
+                println!("Failed to create file watcher: {:?}", e);
+                return;
+            }
+        };
+
+        // Register all paths
+        for p in paths.iter() {
+            let path = Path::new(p);
+            if let Err(e) = watcher.watch(path, RecursiveMode::NonRecursive) {
+                println!("Failed to watch path {}: {:?}", p, e);
+            } else {
+                println!("Watching: {}", p);
+            }
+        }
+
+        // Receive events and emit to frontend
+        loop {
+            match rx.recv() {
+                Ok(Ok(event)) => {
+                    let path = event
+                        .paths
+                        .get(0)
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    let kind = format!("{:?}", event.kind);
+                    let payload = json!({"path": path, "kind": kind});
+                    // emit to all open windows using emit_all
+                    if let Err(e) = app_handle.emit("file-change", payload) {
+                        println!("Failed to emit file-change: {:?}", e);
+                    }
+                }
+                Ok(Err(e)) => {
+                    println!("Watcher error: {:?}", e);
+                }
+                Err(e) => {
+                    println!("Watcher channel receive error: {:?}", e);
+                    break;
+                }
+            }
+        }
+    });
+
+    Ok(())
+}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -458,6 +532,7 @@ pub fn run() {
             start_playtime_tracking,
             get_current_playtime,
             stop_playtime_tracking
+            , track_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

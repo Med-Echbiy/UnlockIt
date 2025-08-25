@@ -13,7 +13,7 @@ const useCodexParserWorkflow = ({
   async function getTheCodexFolder() {
     try {
       const publicPath = await path.publicDir();
-      console.log({ publicPath });
+
       return path.join(
         publicPath,
         "Documents",
@@ -33,7 +33,7 @@ const useCodexParserWorkflow = ({
       // get the ini file
       const filePath = await path.join(codexFolder, "achievements.ini");
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
-      console.log({ readIniFile });
+
       await saveToTrackList(appid, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;

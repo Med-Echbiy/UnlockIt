@@ -77,10 +77,7 @@ function SettingsDialog() {
       setIsLoading(false);
     }
   };
-  useEffect(() => {
-    console.log("Settings dialog mounted");
-    console.log({ open });
-  }, [open]);
+  useEffect(() => {}, [open]);
   return (
     <Dialog open={open} onOpenChange={toggle}>
       <DialogContent ref={dialogRef} className='max-w-2xl w-full bg-background'>

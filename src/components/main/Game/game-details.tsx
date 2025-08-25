@@ -33,14 +33,11 @@ import { GameStoreData } from "@/types/Game";
 import { Achievement } from "@/types/achievements";
 import { motion } from "framer-motion";
 import useParsingWorkflow from "@/workflow/parser/parse-workflow";
-import ConfirmationDialog from "../shared/confirmation-dialog";
 import useResetAchievementsWorkflow from "@/workflow/reset-achievements-workflow";
 import useUIStateStore from "@/store/ui-state-store";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
-  console.log(id);
-
   const game = useMyGamesStore((state) => state.getGameById(id as string));
 
   if (!game) {
@@ -73,11 +70,10 @@ function GameDetailsHeader({ id }: { id: string }) {
 
   useEffect(() => {
     (async () => {
-      console.log({ game });
       if (game) {
         const checkPath = await exists(game.exePath);
         setInstalled(checkPath);
-        console.log({ checkPath });
+
         setCoverImage(
           await invoke("load_image", {
             path: game.header_image,

@@ -11,7 +11,6 @@ const sharedParsingWorkflow = () => {
     return check;
   };
   async function saveToTrackList(appid: number, filePath: string) {
-    console.log({ appid, filePath, B: Boolean(trackedAchievementsFilesStore) });
     const trackedFiles = addTrackedFile(appid, filePath);
     await trackedAchievementsFilesStore?.set(
       "trackedAchievementsFiles",

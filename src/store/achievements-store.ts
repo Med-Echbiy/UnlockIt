@@ -25,7 +25,6 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
   return {
     achievements: [],
     addAchievement: (achievement) => {
-      console.log({ achievement });
       set((state) => ({
         achievements: [...state.achievements, achievement],
       }));

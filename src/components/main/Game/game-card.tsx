@@ -104,8 +104,6 @@ export function GameCard({ game, index }: GameCardProps) {
   const tierStyles = getTierStyles(tier);
   const TierIcon = tierStyles.icon;
 
-  console.log({ unlocked, total, tier });
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

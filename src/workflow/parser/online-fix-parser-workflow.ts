@@ -15,7 +15,7 @@ const useOnlineFixParserWorkflow = ({
   async function getTheOnlineFixFolder() {
     try {
       const publicPath = await path.publicDir();
-      console.log({ publicPath });
+
       return path.join(publicPath, "Documents", "OnlineFix", appid.toString());
     } catch (error) {
       console.error(error);
@@ -25,7 +25,7 @@ const useOnlineFixParserWorkflow = ({
   async function parseOnlineFixFolder() {
     try {
       const onlineFixFolder = await getTheOnlineFixFolder();
-      console.log({ onlineFixFolder });
+
       if (!onlineFixFolder) return false;
       // get the ini file
       const filePath = await path.join(
@@ -35,7 +35,7 @@ const useOnlineFixParserWorkflow = ({
       );
 
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
-      console.log({ readIniFile });
+
       await saveToTrackList(appid, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;

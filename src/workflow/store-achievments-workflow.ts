@@ -67,7 +67,7 @@ const useStoreAchievements = () => {
   ) {
     // Use the appid to get the achievement file
     const dir = await appLocalDataDir();
-    console.log({ dir });
+
     const filePath = joinPath(
       dir,
       "achievements",

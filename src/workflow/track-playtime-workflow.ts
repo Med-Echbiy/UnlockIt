@@ -13,9 +13,7 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       const store = await load("playtimes.json");
       store.set(appid, value);
       await store.save();
-    } catch (e) {
-      console.error("Failed to persist playtime", e);
-    }
+    } catch (e) {}
   }
 
   async function handleProcessExit(code?: number) {
@@ -27,7 +25,7 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     setIsRunning(false);
     await persistPlaytime(playtime);
     // log exit code when available
-    if (typeof code !== "undefined") console.log("process exited", code);
+    // ...existing code...
   }
 
   const startTracking = async () => {
@@ -58,7 +56,6 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
             handleProcessExit(code);
           });
           anyChild.on("error", (e: any) => {
-            console.error("Process error:", e);
             handleProcessExit();
           });
         } else if (typeof anyChild.wait === "function") {
@@ -78,9 +75,7 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
           return next;
         });
       }, 1000);
-    } catch (e) {
-      console.error("Failed to spawn process:", e);
-    }
+    } catch (e) {}
   };
 
   const stopTracking = async (save = true) => {

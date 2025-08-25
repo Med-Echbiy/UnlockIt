@@ -15,7 +15,7 @@ const useRuneParserWorkflow = ({
   async function getTheRunFolder() {
     try {
       const publicPath = await path.publicDir();
-      console.log({ publicPath });
+
       return path.join(
         publicPath,
         "Documents",
@@ -24,7 +24,6 @@ const useRuneParserWorkflow = ({
         appid.toString()
       );
     } catch (error) {
-      console.error(error);
       return false;
     }
   }
@@ -36,12 +35,11 @@ const useRuneParserWorkflow = ({
       const filePath = await path.join(runFolder, "achievements.ini");
 
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
-      console.log({ readIniFile });
+
       await saveToTrackList(appid, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {
-      console.error(error);
       return false;
     }
   }

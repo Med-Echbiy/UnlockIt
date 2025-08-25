@@ -22,14 +22,14 @@ const useCacheImageWorkflow = () => {
     const assetsDir = await createAssetsDir();
     // Fetch the image as a Response object
     const response = await fetch(url);
-    console.log({ response });
+
     if (!response.ok)
       throw new Error(`Failed to fetch image: ${response.status}`);
     // Get binary data as ArrayBuffer
     const arrayBuffer = await response.arrayBuffer();
     const uint8 = new Uint8Array(arrayBuffer);
     const filePath = joinPath(assetsDir, fileName);
-    console.log({ filePath });
+
     await writeFile(filePath, uint8);
     return filePath;
   }
