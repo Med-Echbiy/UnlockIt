@@ -117,11 +117,11 @@ async fn store_achievements_by_appid(
     Ok(())
 }
 #[tauri::command]
-async fn fetch_game_metadata_from_steam(appId: String) -> Result<serde_json::Value, String> {
+async fn fetch_game_metadata_from_steam(app_id: String) -> Result<serde_json::Value, String> {
     // 1. Fetch from Steam
     let url = format!(
         "https://store.steampowered.com/api/appdetails?appids={}",
-        appId
+        app_id
     );
     println!("Fetching game metadata from URL: {}", url);
     let resp = reqwest::get(&url)
@@ -147,7 +147,7 @@ async fn fetch_game_metadata_from_steam(appId: String) -> Result<serde_json::Val
             e, response_text
         )
     })?;
-    let app_data = if let Some(app_data) = json.get(&appId).and_then(|v| v.get("data")) {
+    let app_data = if let Some(app_data) = json.get(&app_id).and_then(|v| v.get("data")) {
         app_data.clone()
     } else {
         serde_json::Value::Null
@@ -751,8 +751,10 @@ async fn toast_notification(
     achievement_name: String,
     sound_path: Option<String>,
     hero: Option<String>,
+    progress: Option<String>, // Format: "current/max" for Xbox-style progress tracking
+    is_rare: Option<bool>,    // Mark rare achievements for special styling
 ) -> Result<(), String> {
-    use tauri_winrt_notification::{Duration, IconCrop, Sound, Toast};
+    use tauri_winrt_notification::{Duration, IconCrop, Toast};
 
     // Handle custom sound from public directory first (before creating toast)
     if let Some(sound_filename) = sound_path {
@@ -824,38 +826,67 @@ async fn toast_notification(
         None
     };
 
-    // Now create the toast notification after all async operations are complete
-    // Use your app's identifier from tauri.conf.json
-    let app_id = "com.mohamed.unlockit";
-    println!("Using app ID for toast: {}", app_id);
+    // Now create the toast notification with Xbox Game Bar styling
+    // Use Xbox Game Bar App ID for gaming-style notifications (Achievement Watcher style)
+    let xbox_app_id = "Microsoft.XboxGamingOverlay_8wekyb3d8bbwe!App";
+    println!("Using Xbox Game Bar App ID for gaming toast: {}", xbox_app_id);
 
-    let mut toast = Toast::new(app_id)
-        .title("🏆 Achievement Unlocked!")
-        .text1(&game_name)
-        .text2(&achievement_name)
+    // Format description based on achievement rarity (Xbox style)
+    let description = if is_rare.unwrap_or(false) {
+        format!("💎 Rare Achievement Unlocked - {}", achievement_name)
+    } else {
+        format!("🏆 Achievement Unlocked - {}", achievement_name)
+    };
+
+    // Format achievement description with progress if provided
+    let achievement_text = if let Some(prog) = &progress {
+        if !prog.is_empty() {
+            // Parse progress like "current/max"
+            if let Some((current, max)) = prog.split_once('/') {
+                if let (Ok(curr), Ok(total)) = (current.parse::<u32>(), max.parse::<u32>()) {
+                    let percent = (curr as f32 / total as f32 * 100.0) as u32;
+                    format!("{}\n📊 Progress: {}% ({}/{})", description, percent, curr, total)
+                } else {
+                    format!("{}\n📊 {}", description, prog)
+                }
+            } else {
+                format!("{}\n📊 {}", description, prog)
+            }
+        } else {
+            description
+        }
+    } else {
+        description
+    };
+
+    let mut toast = Toast::new(xbox_app_id)
+        .title(&game_name) // Use game name as the title
+        .text1(&achievement_text) // Use formatted description as text1
         .duration(Duration::Long) // Use Long duration for better visibility
-        .sound(Some(Sound::Default)); // Always use default sound for the toast
+        .sound(None); // Sound disabled
 
-    // Add hero image if processed successfully
+    // Add hero image if processed successfully (Xbox-style background)
     if let Some(hero_path) = processed_hero_path {
-        println!("Adding hero image: {:?}", hero_path);
+        println!("Adding Xbox-style hero image: {:?}", hero_path);
         toast = toast.hero(&hero_path, "Game Hero Image");
     }
 
-    // Add icon if processed successfully
+    // Add icon if processed successfully (Xbox-style achievement icon)
     if let Some(icon_path_buf) = processed_icon_path {
-        println!("Adding icon: {:?}", icon_path_buf);
+        println!("Adding Xbox-style achievement icon: {:?}", icon_path_buf);
         toast = toast.icon(&icon_path_buf, IconCrop::Square, "Achievement Icon");
     }
 
-    // Show the toast notification
+    // Show the Xbox-style toast notification
     toast
         .show()
-        .map_err(|e| format!("Failed to show toast notification: {}", e))?;
+        .map_err(|e| format!("Failed to show Xbox-style toast notification: {}", e))?;
 
     println!(
-        "Toast notification shown for achievement: {} in game: {}",
-        achievement_name, game_name
+        "🎮 Xbox-style toast notification shown for achievement: {} in game: {}{}",
+        achievement_name, 
+        game_name,
+        if is_rare.unwrap_or(false) { " (RARE!)" } else { "" }
     );
     Ok(())
 }
@@ -1043,7 +1074,7 @@ async fn play_custom_sound(_sound_path: &std::path::Path) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_notification::init())
+        // .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -1061,7 +1092,7 @@ pub fn run() {
             get_current_playtime,
             stop_playtime_tracking,
             track_files,
-            toast_notification
+            toast_notification,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

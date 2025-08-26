@@ -5,11 +5,6 @@ import { listen } from "@tauri-apps/api/event";
 import useMyGamesStore from "@/store/my-games-store";
 import useParsingWorkflow from "./parser/parse-workflow";
 import { toast } from "sonner";
-import {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
 
 const useTrackingWorkflow = () => {
   const { trackAchievementsFiles, getTrackedAchievementsFiles } =
@@ -23,11 +18,9 @@ const useTrackingWorkflow = () => {
   // Use refs to prevent multiple registrations and track previous state properly
   const isWatcherSetup = useRef(false);
   const currentPaths = useRef<string>("");
+  const eventListenerSetup = useRef(false);
 
   useEffect(() => {
-    console.log("TrackingWorkflow useEffect triggered");
-    console.log("trackAchievementsFiles:", trackAchievementsFiles);
-
     const getPaths = trackAchievementsFiles.map((item) => item.filePath);
     const pathsString = JSON.stringify(getPaths.sort()); // Sort for consistent comparison
 
@@ -67,7 +60,14 @@ const useTrackingWorkflow = () => {
 
   // Separate effect for setting up the event listener (only once)
   useEffect(() => {
+    // Prevent multiple event listener setups
+    if (eventListenerSetup.current) {
+      console.log("Event listener already setup, skipping...");
+      return;
+    }
+
     console.log("Setting up file-change event listener...");
+    eventListenerSetup.current = true;
 
     const unlisten = listen("file-change", (event) => {
       console.log("=== FILE CHANGE EVENT RECEIVED ===");
@@ -185,7 +185,7 @@ const useTrackingWorkflow = () => {
                     toast(
                       `${unlockedAchievements.length} new achievements unlocked!`,
                       {
-                        duration: Infinity,
+                        duration: 3000,
                         style: {
                           backgroundColor: "#a21caf", // tailwindcss purple-500
                         },
@@ -193,73 +193,51 @@ const useTrackingWorkflow = () => {
                     );
 
                     // Check notification permission once for all notifications
-                    let permissionGranted = await isPermissionGranted();
-                    if (!permissionGranted) {
-                      const permission = await requestPermission();
-                      permissionGranted = permission === "granted";
-                    }
+                    // let permissionGranted = await isPermissionGranted();
+                    // if (!permissionGranted) {
+                    //   const permission = await requestPermission();
+                    //   permissionGranted = permission === "granted";
+                    // }
 
-                    if (permissionGranted) {
-                      // Show notification for each unlocked achievement
-                      for (const achievement of unlockedAchievements) {
-                        if (achievement) {
-                          console.log(
-                            "Showing native notification for achievement:",
-                            achievement.displayName || achievement.name
-                          );
+                    // if (permissionGranted) {
+                    // Show notification for each unlocked achievement
+                    for (const achievement of unlockedAchievements) {
+                      if (achievement) {
+                        console.log(
+                          "Showing native notification for achievement:",
+                          achievement.displayName || achievement.name
+                        );
 
-                          try {
-                            // Play custom sound from public directory
-                            const audio = new Audio("/xbox-360.mp3");
-                            audio.volume = 1; // Adjust volume as needed
-                            audio
-                              .play()
-                              .catch((err) =>
-                                console.warn(
-                                  "Failed to play custom sound:",
-                                  err
-                                )
-                              );
-                            console.log({
-                              achievement_icon: achievement.icon,
-                              game_header: game.header_image,
-                              gameFormated: game.header_image
-                                .replace(/\\/g, "/")
-                                .replace(/^([A-Z]):/, "file:///$1:"),
-                            });
-
-                            // Try different URL formats for Windows notifications
-                            const imageUrl = game.header_image
-                              .replace(/\\/g, "/")
-                              .replace(/^([A-Z]):/, "file:///$1:");
-
-                            sendNotification({
-                              title: "🏆 Achievement Unlocked!",
-                              body: `${
-                                achievement.displayName || achievement.name
-                              } in ${game.name}`,
-                              // Try using the formatted file URL in the main icon field
-                              icon: imageUrl,
-                              attachments: [
-                                { id: "image", url: game.header_image },
-                              ],
-
-                              sound: "default",
-                              // Remove attachments temporarily to test if main icon works
-                            });
-                          } catch (error) {
-                            console.error(
-                              "Failed to send notification:",
-                              error
+                        try {
+                          // Play custom sound from public directory
+                          const audio = new Audio("/xbox-360.mp3");
+                          audio.volume = 1; // Adjust volume as needed
+                          audio
+                            .play()
+                            .catch((err) =>
+                              console.warn("Failed to play custom sound:", err)
                             );
-                          }
+                          // Use Xbox-style toast_notification invoke
+                          await invoke("toast_notification", {
+                            iconPath: achievement.icon || "",
+                            gameName: game.name,
+                            achievementName:
+                              achievement.displayName || achievement.name,
+                            soundPath: null,
+                            hero: game.header_image || "",
+                            progress: null, // Could be enhanced to show actual progress if available
+                            isRare: false, // Could be enhanced to detect rare achievements
+                          });
+                        } catch (error) {
+                          console.error("Failed to send notification:", error);
                         }
                       }
-                    } else {
-                      console.warn(
-                        "Notification permission not granted - cannot show achievement notifications"
-                      );
                     }
+                    // } else {
+                    //   console.warn(
+                    //     "Notification permission not granted - cannot show achievement notifications"
+                    //   );
+                    // }
                   } else {
                     console.log("No matching achievements found in game data");
                   }
@@ -283,6 +261,7 @@ const useTrackingWorkflow = () => {
       console.log(
         "Event listener cleanup - unregistering file-change listener"
       );
+      eventListenerSetup.current = false;
       unlisten.then((fn) => fn());
     };
   }, []); // Empty dependency array - setup listener only once
@@ -293,6 +272,7 @@ const useTrackingWorkflow = () => {
       console.log("TrackingWorkflow component unmounting - cleaning up");
       isWatcherSetup.current = false;
       currentPaths.current = "";
+      eventListenerSetup.current = false;
     };
   }, []);
 
@@ -331,6 +311,7 @@ const useTrackingWorkflow = () => {
 
     return game ?? false;
   }
+
   return {};
 };
 
