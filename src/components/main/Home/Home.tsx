@@ -14,6 +14,7 @@ function Home() {
     (async () => {
       setLoading(true);
       for (const game of games) {
+        console.log("Parsing achievements for game:", game.name);
         await parseAchievements(game.appId, game.exePath);
       }
       setLoading(false);

@@ -10,31 +10,35 @@ const useCodexParserWorkflow = ({
 }) => {
   const { saveToTrackList } = sharedParsingWorkflow();
   // Your implementation here
-  async function getTheCodexFolder() {
+  async function parseCodexFolder(
+    app_id: number = appid,
+    _exe_path: string = exePath
+  ) {
     try {
-      const publicPath = await path.publicDir();
+      // Create a dynamic getTheCodexFolder function with the provided app_id
+      const getTheCodexFolderWithId = async () => {
+        try {
+          const publicPath = await path.publicDir();
+          return path.join(
+            publicPath,
+            "Documents",
+            "Steam",
+            "CODEX",
+            app_id.toString()
+          );
+        } catch (error) {
+          console.error(error);
+          return false;
+        }
+      };
 
-      return path.join(
-        publicPath,
-        "Documents",
-        "Steam",
-        "CODEX",
-        appid.toString()
-      );
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
-  }
-  async function parseCodexFolder() {
-    try {
-      const codexFolder = await getTheCodexFolder();
+      const codexFolder = await getTheCodexFolderWithId();
       if (!codexFolder) return false;
       // get the ini file
       const filePath = await path.join(codexFolder, "achievements.ini");
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
 
-      await saveToTrackList(appid, filePath);
+      await saveToTrackList(app_id, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {

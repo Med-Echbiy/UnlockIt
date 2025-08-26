@@ -1,37 +1,32 @@
 import useAchievementsStore from "@/store/achievements-store";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { SteamSchemaResponse } from "@/types/achievements";
 import useMyGamesStore from "@/store/my-games-store";
 import useParsingWorkflow from "./parser/parse-workflow";
 import { toast } from "sonner";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 
 const useTrackingWorkflow = () => {
-  const { trackAchievementsFiles, achievements, getTrackedAchievementsFiles } =
+  const { trackAchievementsFiles, getTrackedAchievementsFiles } =
     useAchievementsStore();
   const { getGameById } = useMyGamesStore();
   const { parseAchievements } = useParsingWorkflow({
     exePath: "",
     appid: 0,
   });
-  const [previousAchievement, setPreviousAchievement] = useState<
-    SteamSchemaResponse[]
-  >([]);
 
-  // Use refs to prevent multiple registrations
+  // Use refs to prevent multiple registrations and track previous state properly
   const isWatcherSetup = useRef(false);
   const currentPaths = useRef<string>("");
 
   useEffect(() => {
     console.log("TrackingWorkflow useEffect triggered");
     console.log("trackAchievementsFiles:", trackAchievementsFiles);
-
-    // Set previous achievements at the start to ensure we have a baseline for comparison
-    if (previousAchievement.length === 0 && achievements.length > 0) {
-      console.log("Setting initial previous achievements state");
-      setPreviousAchievement([...achievements]); // Create a deep copy
-    }
 
     const getPaths = trackAchievementsFiles.map((item) => item.filePath);
     const pathsString = JSON.stringify(getPaths.sort()); // Sort for consistent comparison
@@ -68,7 +63,7 @@ const useTrackingWorkflow = () => {
     } else {
       console.log("Watcher already setup for these paths, skipping...");
     }
-  }, [trackAchievementsFiles.length, achievements.length]); // Add achievements.length to dependency
+  }, [trackAchievementsFiles.length]);
 
   // Separate effect for setting up the event listener (only once)
   useEffect(() => {
@@ -102,72 +97,182 @@ const useTrackingWorkflow = () => {
           console.log("Processing achievement changes for game:", game.name);
           console.log("Added lines:", payload.added_lines);
 
-          // Parse achievements - this function returns void but updates the store
-          parseAchievements(appId, exePath)
-            .then(async () => {
-              // Wait a bit for the store to update
-              await new Promise((resolve) => setTimeout(resolve, 100));
+          // Extract achievement names from added lines using regex pattern [achievement name]
+          const achievementNames = new Set<string>();
 
-              // Get the current achievements from the store after parsing
-              const { achievements: updatedAchievements } =
-                useAchievementsStore.getState();
-              const currentAchievements = updatedAchievements.find(
-                (ach) => Number(ach.gameId) === Number(appId)
-              );
-              const previousAch = previousAchievement.find(
-                (ach) => Number(ach.gameId) === Number(appId)
-              );
+          payload.added_lines.forEach((line) => {
+            console.log("Processing line:", line);
+            console.log("Line type:", typeof line);
+            console.log("Line length:", line.length);
 
-              if (currentAchievements && previousAch) {
-                const currentUnlocked =
-                  currentAchievements.game?.availableGameStats?.achievements?.filter(
-                    (a) => a.defaultvalue === 1
-                  ) || [];
-                const previousUnlocked =
-                  previousAch.game?.availableGameStats?.achievements?.filter(
-                    (a) => a.defaultvalue === 1
-                  ) || [];
+            // Reset regex for each line to avoid issues with global flag
+            const achievementRegex = /\[(.+?)\]/g;
+            let match;
 
-                // Find newly unlocked achievements
-                const newlyUnlocked = currentUnlocked.filter(
-                  (current) =>
-                    !previousUnlocked.some((prev) => prev.name === current.name)
-                );
-                console.log({
-                  newlyUnlocked,
-                  currentUnlocked: currentUnlocked.length,
-                  previousUnlocked: previousUnlocked.length,
-                });
+            while ((match = achievementRegex.exec(line)) !== null) {
+              console.log("Full match:", match);
+              const achievementName = match[1].trim();
+              console.log("Raw match found:", match[1]);
+              console.log("Trimmed achievement name:", achievementName);
 
-                if (newlyUnlocked.length > 0) {
-                  toast(`${newlyUnlocked.length} new achievements unlocked!`);
-
-                  // Show notification for each newly unlocked achievement
-                  for (const achievement of newlyUnlocked) {
-                    await invoke("toast_notification", {
-                      iconPath:
-                        game.header_image ||
-                        game.capsule_image ||
-                        "path/to/default/icon.png",
-                      gameName: game.name || "Unknown Game",
-                      achievementName:
-                        achievement.displayName ||
-                        achievement.name ||
-                        "Unknown Achievement",
-                      soundPath: "xbox-rare.mp3", // optional
-                    });
-                  }
-                }
+              if (achievementName) {
+                achievementNames.add(achievementName);
+                console.log("Added achievement to set:", achievementName);
               }
+            }
 
-              // Update previous achievements with current state - use a deep copy
-              setPreviousAchievement([
-                ...useAchievementsStore.getState().achievements,
-              ]);
-            })
-            .catch((error) => {
-              console.error("Error parsing achievements:", error);
-            });
+            // Also try a simple test
+            if (line.includes("[") && line.includes("]")) {
+              console.log("Line contains brackets - manual check passed");
+              const manualMatch = line.match(/\[(.+?)\]/);
+              if (manualMatch) {
+                console.log("Manual regex match found:", manualMatch[1]);
+              } else {
+                console.log("Manual regex match failed");
+              }
+            } else {
+              console.log("Line does not contain brackets");
+            }
+          });
+
+          console.log(
+            "Unique achievement names found:",
+            Array.from(achievementNames)
+          );
+
+          if (achievementNames.size > 0) {
+            // Parse achievements to get the latest data
+            parseAchievements(appId, exePath)
+              .then(async () => {
+                // Wait a bit for the store to update
+                await new Promise((resolve) => setTimeout(resolve, 100));
+
+                // Get the current achievements from the store after parsing
+                const { achievements: updatedAchievements } =
+                  useAchievementsStore.getState();
+                const currentAchievements = updatedAchievements.find(
+                  (ach) => Number(ach.gameId) === Number(appId)
+                );
+
+                if (
+                  currentAchievements?.game?.availableGameStats?.achievements
+                ) {
+                  const allAchievements =
+                    currentAchievements.game.availableGameStats.achievements;
+
+                  // Find the achievements that match the names from added lines
+                  const unlockedAchievements = Array.from(achievementNames)
+                    .map((achievementName) => {
+                      // Try to find by name or displayName
+                      return allAchievements.find(
+                        (ach) =>
+                          ach.name === achievementName ||
+                          ach.displayName === achievementName
+                      );
+                    })
+                    .filter(Boolean); // Remove undefined entries
+
+                  console.log(
+                    "Found matching achievements:",
+                    unlockedAchievements.map((a) => ({
+                      name: a?.name,
+                      displayName: a?.displayName,
+                    }))
+                  );
+
+                  if (unlockedAchievements.length > 0) {
+                    console.log("🎉 NEW ACHIEVEMENTS UNLOCKED!");
+                    toast(
+                      `${unlockedAchievements.length} new achievements unlocked!`,
+                      {
+                        duration: Infinity,
+                        style: {
+                          backgroundColor: "#a21caf", // tailwindcss purple-500
+                        },
+                      }
+                    );
+
+                    // Check notification permission once for all notifications
+                    let permissionGranted = await isPermissionGranted();
+                    if (!permissionGranted) {
+                      const permission = await requestPermission();
+                      permissionGranted = permission === "granted";
+                    }
+
+                    if (permissionGranted) {
+                      // Show notification for each unlocked achievement
+                      for (const achievement of unlockedAchievements) {
+                        if (achievement) {
+                          console.log(
+                            "Showing native notification for achievement:",
+                            achievement.displayName || achievement.name
+                          );
+
+                          try {
+                            // Play custom sound from public directory
+                            const audio = new Audio("/xbox-360.mp3");
+                            audio.volume = 1; // Adjust volume as needed
+                            audio
+                              .play()
+                              .catch((err) =>
+                                console.warn(
+                                  "Failed to play custom sound:",
+                                  err
+                                )
+                              );
+                            console.log({
+                              achievement_icon: achievement.icon,
+                              game_header: game.header_image,
+                              gameFormated: game.header_image
+                                .replace(/\\/g, "/")
+                                .replace(/^([A-Z]):/, "file:///$1:"),
+                            });
+
+                            // Try different URL formats for Windows notifications
+                            const imageUrl = game.header_image
+                              .replace(/\\/g, "/")
+                              .replace(/^([A-Z]):/, "file:///$1:");
+
+                            sendNotification({
+                              title: "🏆 Achievement Unlocked!",
+                              body: `${
+                                achievement.displayName || achievement.name
+                              } in ${game.name}`,
+                              // Try using the formatted file URL in the main icon field
+                              icon: imageUrl,
+                              attachments: [
+                                { id: "image", url: game.header_image },
+                              ],
+
+                              sound: "default",
+                              // Remove attachments temporarily to test if main icon works
+                            });
+                          } catch (error) {
+                            console.error(
+                              "Failed to send notification:",
+                              error
+                            );
+                          }
+                        }
+                      }
+                    } else {
+                      console.warn(
+                        "Notification permission not granted - cannot show achievement notifications"
+                      );
+                    }
+                  } else {
+                    console.log("No matching achievements found in game data");
+                  }
+                } else {
+                  console.log("No achievement data available in store");
+                }
+              })
+              .catch((error) => {
+                console.error("Error parsing achievements:", error);
+              });
+          } else {
+            console.log("No achievement patterns found in added lines");
+          }
         } else {
           console.log("No new lines added, skipping achievement check");
         }

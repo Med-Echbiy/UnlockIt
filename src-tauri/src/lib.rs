@@ -1,16 +1,16 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use serde_json::json;
+use std::collections::HashMap;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command as StdCommand, Stdio};
-use std::collections::HashMap;
+use std::sync::mpsc::channel as std_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager, State};
-use std::sync::mpsc::channel as std_channel;
-use std::path::Path;
-use serde_json::json;
 // notify crate is used to watch filesystem events
 use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
 
@@ -42,7 +42,7 @@ async fn fetch_achievements(api_key: String, appid: String) -> Result<serde_json
     // Use GetSchemaForGame instead of GetPlayerAchievements since we don't have a steam_id
     let url = format!(
         "https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid={}&key={}&l={}",
-        appid, api_key,"english"
+        appid, api_key, "english"
     );
 
     println!("Fetching from URL: {}", url);
@@ -157,13 +157,16 @@ async fn fetch_game_metadata_from_steam(appId: String) -> Result<serde_json::Val
 }
 #[tauri::command]
 fn load_image(path: String) -> Result<String, String> {
-    use std::fs;
     use base64::{engine::general_purpose, Engine};
+    use std::fs;
 
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
 
     // Guess MIME type from extension
-    let mime = if let Some(ext) = std::path::Path::new(&path).extension().and_then(|e| e.to_str()) {
+    let mime = if let Some(ext) = std::path::Path::new(&path)
+        .extension()
+        .and_then(|e| e.to_str())
+    {
         match ext.to_lowercase().as_str() {
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
@@ -175,7 +178,11 @@ fn load_image(path: String) -> Result<String, String> {
         "application/octet-stream"
     };
 
-    Ok(format!("data:{};base64,{}", mime, general_purpose::STANDARD.encode(bytes)))
+    Ok(format!(
+        "data:{};base64,{}",
+        mime,
+        general_purpose::STANDARD.encode(bytes)
+    ))
 }
 
 #[tauri::command]
@@ -185,17 +192,20 @@ async fn start_playtime_tracking(
     appid: String,
     exe_path: String,
 ) -> Result<(), String> {
-    println!("Starting playtime tracking for {} with exe: {}", appid, exe_path);
-    
+    println!(
+        "Starting playtime tracking for {} with exe: {}",
+        appid, exe_path
+    );
+
     // Load existing playtime from store
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| format!("Could not get app data directory: {}", e))?;
-    
+
     let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
     let existing_playtime = load_playtime(&playtime_file, &appid).await.unwrap_or(0);
-    
+
     // Check if process is already running
     {
         let processes = process_manager.processes.lock().unwrap();
@@ -205,38 +215,41 @@ async fn start_playtime_tracking(
             }
         }
     }
-    
+
     // Extract process name from exe path for monitoring
     let process_name = std::path::Path::new(&exe_path)
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("")
         .to_string();
-    
+
     // Start the game process with elevation handling
     let child = try_spawn_with_elevation(&exe_path)?;
     let _child_id = child.id();
-    
+
     // Store process info
     {
         let mut processes = process_manager.processes.lock().unwrap();
-        processes.insert(appid.clone(), ProcessInfo {
-            start_time: Instant::now(),
-            accumulated_time: existing_playtime,
-            is_running: true,
-        });
+        processes.insert(
+            appid.clone(),
+            ProcessInfo {
+                start_time: Instant::now(),
+                accumulated_time: existing_playtime,
+                is_running: true,
+            },
+        );
     }
-    
+
     // Monitor the process in a separate thread using process name monitoring
     let appid_clone = appid.clone();
     let processes_arc = Arc::clone(&process_manager.processes);
     let app_handle_clone = app_handle.clone();
     let process_name_clone = process_name.clone();
-    
+
     thread::spawn(move || {
         // Wait a bit for the process to start
         thread::sleep(Duration::from_secs(2));
-        
+
         // Monitor by checking if process with this name exists
         loop {
             if !is_process_running(&process_name_clone) {
@@ -244,9 +257,9 @@ async fn start_playtime_tracking(
             }
             thread::sleep(Duration::from_secs(5)); // Check every 5 seconds
         }
-        
+
         println!("Process {} is no longer running", process_name_clone);
-        
+
         // Process has ended, update playtime
         let final_playtime = {
             let mut processes = processes_arc.lock().unwrap();
@@ -259,7 +272,7 @@ async fn start_playtime_tracking(
                 0
             }
         };
-        
+
         // Save playtime to file
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
@@ -270,7 +283,7 @@ async fn start_playtime_tracking(
             }
         });
     });
-    
+
     Ok(())
 }
 
@@ -299,7 +312,7 @@ async fn stop_playtime_tracking(
     appid: String,
 ) -> Result<u64, String> {
     println!("Stopping playtime tracking for {}", appid);
-    
+
     let final_playtime = {
         let mut processes = process_manager.processes.lock().unwrap();
         if let Some(info) = processes.get_mut(&appid) {
@@ -313,16 +326,16 @@ async fn stop_playtime_tracking(
             return Err("No tracking session found for this app".to_string());
         }
     };
-    
+
     // Save playtime to file
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| format!("Could not get app data directory: {}", e))?;
-    
+
     let playtime_file = app_data_dir.join("Playtime").join("playtimes.json");
     save_playtime(&playtime_file, &appid, final_playtime).await?;
-    
+
     Ok(final_playtime)
 }
 
@@ -330,13 +343,13 @@ async fn load_playtime(file_path: &PathBuf, appid: &str) -> Result<u64, String> 
     if !file_path.exists() {
         return Ok(0);
     }
-    
+
     let content = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read playtime file: {}", e))?;
-    
+
     let json: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse playtime JSON: {}", e))?;
-    
+
     if let Some(playtime) = json.get(appid).and_then(|v| v.as_u64()) {
         Ok(playtime)
     } else {
@@ -349,7 +362,7 @@ async fn save_playtime(file_path: &PathBuf, appid: &str, playtime: u64) -> Resul
     if let Some(parent) = file_path.parent() {
         create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    
+
     // Load existing data or create new
     let mut data = if file_path.exists() {
         let content = std::fs::read_to_string(file_path)
@@ -358,26 +371,26 @@ async fn save_playtime(file_path: &PathBuf, appid: &str, playtime: u64) -> Resul
     } else {
         serde_json::json!({})
     };
-    
+
     // Update the playtime for this appid
     data[appid] = serde_json::Value::Number(serde_json::Number::from(playtime));
-    
+
     // Write back to file
     let content = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Failed to serialize playtime data: {}", e))?;
-    
+
     std::fs::write(file_path, content)
         .map_err(|e| format!("Failed to write playtime file: {}", e))?;
-    
+
     Ok(())
 }
 
 fn try_spawn_process(exe_path: &str) -> Result<std::process::Child, String> {
     let mut cmd = StdCommand::new(exe_path);
-    cmd.stdout(Stdio::null())
-       .stderr(Stdio::null());
-    
-    cmd.spawn().map_err(|e| format!("Failed to start process: {}", e))
+    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+
+    cmd.spawn()
+        .map_err(|e| format!("Failed to start process: {}", e))
 }
 
 fn try_spawn_with_elevation(exe_path: &str) -> Result<std::process::Child, String> {
@@ -401,13 +414,13 @@ fn is_process_running(process_name: &str) -> bool {
     let output = std::process::Command::new("tasklist")
         .args(["/FI", &format!("IMAGENAME eq {}", process_name)])
         .output();
-    
+
     match output {
         Ok(output) => {
             let output_str = String::from_utf8_lossy(&output.stdout);
             output_str.contains(process_name)
         }
-        Err(_) => false
+        Err(_) => false,
     }
 }
 
@@ -416,10 +429,10 @@ fn is_process_running(process_name: &str) -> bool {
     let output = std::process::Command::new("pgrep")
         .arg(process_name)
         .output();
-    
+
     match output {
         Ok(output) => output.status.success(),
-        Err(_) => false
+        Err(_) => false,
     }
 }
 
@@ -428,15 +441,16 @@ fn try_spawn_elevated(exe_path: &str) -> Result<std::process::Child, String> {
     // Use Windows ShellExecute with "runas" verb for UAC elevation
     let mut cmd = StdCommand::new("powershell");
     cmd.args([
-        "-WindowStyle", "Hidden",
-        "-Command", 
-        &format!("Start-Process -FilePath '{}' -Verb RunAs -Wait", exe_path)
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        &format!("Start-Process -FilePath '{}' -Verb RunAs -Wait", exe_path),
     ]);
-    cmd.stdout(Stdio::null())
-       .stderr(Stdio::null());
-    
+    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+
     // Start powershell process that will handle the elevation
-    cmd.spawn().map_err(|e| format!("Failed to start elevated process: {}", e))
+    cmd.spawn()
+        .map_err(|e| format!("Failed to start elevated process: {}", e))
 }
 
 #[cfg(not(windows))]
@@ -447,7 +461,8 @@ fn try_spawn_elevated(exe_path: &str) -> Result<std::process::Child, String> {
 #[tauri::command]
 fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), String> {
     // Validate paths first
-    let valid_paths: Vec<String> = paths.into_iter()
+    let valid_paths: Vec<String> = paths
+        .into_iter()
         .filter(|path| {
             let path_obj = Path::new(path);
             if path_obj.exists() {
@@ -458,7 +473,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
             }
         })
         .collect();
-    
+
     if valid_paths.is_empty() {
         return Err("No valid paths provided for tracking".to_string());
     }
@@ -491,13 +506,13 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
 
         // Store previous file contents for diff comparison
         let file_contents = Arc::new(Mutex::new(HashMap::<String, String>::new()));
-        
+
         // Store last event time for debouncing
         let last_event_time = Arc::new(Mutex::new(HashMap::<String, Instant>::new()));
-        
+
         // Store active debounce tasks to prevent multiple spawns
         let active_tasks = Arc::new(Mutex::new(HashMap::<String, bool>::new()));
-        
+
         let debounce_duration = Duration::from_millis(1000); // Increased to 1 second
 
         // Register all valid paths and read initial content
@@ -527,7 +542,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                         }
                     }
                 };
-                
+
                 let mut contents = file_contents.lock().unwrap();
                 contents.insert(p.clone(), initial_content);
             }
@@ -542,9 +557,12 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                         .get(0)
                         .map(|p| p.to_string_lossy().to_string())
                         .unwrap_or_default();
-                    
-                    println!("🔥 FILE EVENT DETECTED: {:?} for path: {}", event.kind, path);
-                    
+
+                    println!(
+                        "🔥 FILE EVENT DETECTED: {:?} for path: {}",
+                        event.kind, path
+                    );
+
                     // Skip if we already have an active task for this path
                     {
                         let mut tasks = active_tasks.lock().unwrap();
@@ -554,38 +572,39 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                         }
                         tasks.insert(path.clone(), true);
                     }
-                    
+
                     // Update last event time for this path
                     {
                         let mut times = last_event_time.lock().unwrap();
                         times.insert(path.clone(), Instant::now());
                     }
-                    
+
                     // Spawn a task to handle the debounced event
                     let app_handle_clone = app_handle.clone();
                     let path_clone = path.clone();
                     let file_contents_clone = Arc::clone(&file_contents);
                     let last_event_time_clone = Arc::clone(&last_event_time);
                     let active_tasks_clone = Arc::clone(&active_tasks);
-                    
+
                     thread::spawn(move || {
                         // Wait for debounce duration
                         thread::sleep(debounce_duration);
-                        
+
                         // Check if this is still the latest event for this path
                         let should_process = {
                             let times = last_event_time_clone.lock().unwrap();
-                            times.get(&path_clone)
+                            times
+                                .get(&path_clone)
                                 .map(|&last_time| {
                                     let elapsed = last_time.elapsed();
                                     elapsed >= debounce_duration
                                 })
                                 .unwrap_or(false)
                         };
-                        
+
                         if should_process {
                             println!("Processing file change for: {}", path_clone);
-                            
+
                             // Read current file content - handle all file types (text and binary)
                             let new_content = match std::fs::read_to_string(&path_clone) {
                                 Ok(content) => {
@@ -606,29 +625,37 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                                     }
                                 }
                             };
-                            
+
                             if !new_content.is_empty() {
                                 let old_content = {
                                     let contents = file_contents_clone.lock().unwrap();
                                     contents.get(&path_clone).cloned().unwrap_or_default()
                                 };
-                                
-                                println!("Old content length: {}, New content length: {}", old_content.len(), new_content.len());
-                                
+
+                                println!(
+                                    "Old content length: {}, New content length: {}",
+                                    old_content.len(),
+                                    new_content.len()
+                                );
+
                                 // Only process if content actually changed
                                 if old_content != new_content {
                                     // Calculate diff to get added lines
                                     let added_lines = get_added_lines(&old_content, &new_content);
-                                    
+
                                     // Update stored content
                                     {
                                         let mut contents = file_contents_clone.lock().unwrap();
                                         contents.insert(path_clone.clone(), new_content.clone());
                                     }
-                                    
-                                    println!("File changed: {}, added {} lines", path_clone, added_lines.len());
+
+                                    println!(
+                                        "File changed: {}, added {} lines",
+                                        path_clone,
+                                        added_lines.len()
+                                    );
                                     println!("Added lines: {:?}", added_lines);
-                                    
+
                                     let kind = "FileModified";
                                     let payload = json!({
                                         "path": path_clone,
@@ -636,7 +663,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                                         "added_lines": added_lines,
                                         "content": new_content
                                     });
-                                    
+
                                     println!("Emitting file-change event...");
                                     // emit to all open windows using emit_all
                                     if let Err(e) = app_handle_clone.emit("file-change", payload) {
@@ -653,7 +680,7 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
                         } else {
                             println!("Skipping processing (not latest event) for: {}", path_clone);
                         }
-                        
+
                         // Mark task as completed
                         {
                             let mut tasks = active_tasks_clone.lock().unwrap();
@@ -679,13 +706,13 @@ fn track_files(app_handle: tauri::AppHandle, paths: Vec<String>) -> Result<(), S
 fn get_added_lines(old_content: &str, new_content: &str) -> Vec<String> {
     let old_lines: Vec<&str> = old_content.lines().collect();
     let new_lines: Vec<&str> = new_content.lines().collect();
-    
+
     let mut added_lines = Vec::new();
-    
+
     // Simple diff algorithm - find lines that exist in new but not in old
     for (line_num, new_line) in new_lines.iter().enumerate() {
         let line_number = line_num + 1;
-        
+
         // Check if this line is new by comparing with old content at same position
         if line_num >= old_lines.len() {
             // Line added at the end
@@ -697,7 +724,7 @@ fn get_added_lines(old_content: &str, new_content: &str) -> Vec<String> {
             }
         }
     }
-    
+
     // Also check for completely new lines inserted in the middle
     if new_lines.len() > old_lines.len() {
         let diff_count = new_lines.len() - old_lines.len();
@@ -712,52 +739,311 @@ fn get_added_lines(old_content: &str, new_content: &str) -> Vec<String> {
             }
         }
     }
-    
+
     added_lines
 }
 
 #[tauri::command]
 async fn toast_notification(
+    app_handle: tauri::AppHandle,
     icon_path: String,
     game_name: String,
     achievement_name: String,
     sound_path: Option<String>,
+    hero: Option<String>,
 ) -> Result<(), String> {
-    use tauri_winrt_notification::{Duration, Sound, Toast, IconCrop};
-    
-    // Create the toast notification with your app name instead of PowerShell
-    let mut toast = Toast::new("UnlockIt")
-        .title("Achievement Unlocked! 🏆")
-        .text1(&game_name)
-        .text2(&achievement_name)
-        .duration(Duration::Short);
-    
-    // Add icon if path is provided and file exists
-    if !icon_path.is_empty() && std::path::Path::new(&icon_path).exists() {
-        let icon_path_ref = std::path::Path::new(&icon_path);
-        toast = toast.icon(icon_path_ref, IconCrop::Square, "Achievement Icon");
+    use tauri_winrt_notification::{Duration, IconCrop, Sound, Toast};
+
+    // Handle custom sound from public directory first (before creating toast)
+    if let Some(sound_filename) = sound_path {
+        if !sound_filename.is_empty() {
+            // Get the resource directory (where public files are located)
+            match app_handle
+                .path()
+                .resolve(&sound_filename, tauri::path::BaseDirectory::Resource)
+            {
+                Ok(sound_file_path) => {
+                    println!("Looking for sound file at: {:?}", sound_file_path);
+
+                    if sound_file_path.exists() {
+                        println!("Sound file found: {:?}", sound_file_path);
+                        // Play the custom sound using Windows API
+                        play_custom_sound(&sound_file_path).await;
+                    } else {
+                        println!(
+                            "Sound file not found at: {:?}, using default sound",
+                            sound_file_path
+                        );
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "Failed to resolve sound file path: {}, using default sound",
+                        e
+                    );
+                }
+            }
+        }
     }
-    
-    // Add sound if path is provided
-    if let Some(sound) = sound_path {
-        if !sound.is_empty() && std::path::Path::new(&sound).exists() {
-            toast = toast.sound(Some(Sound::Default));
+
+    // Process hero image if provided (blur and darken)
+    let processed_hero_path = if let Some(hero_path) = hero {
+        if !hero_path.is_empty() && std::path::Path::new(&hero_path).exists() {
+            match process_hero_image(&hero_path, &app_handle).await {
+                Ok(path) => Some(path),
+                Err(e) => {
+                    println!("Failed to process hero image: {}", e);
+                    None
+                }
+            }
         } else {
-            toast = toast.sound(Some(Sound::Default));
+            println!("Hero image path invalid or doesn't exist: {}", hero_path);
+            None
         }
     } else {
-        toast = toast.sound(Some(Sound::Default));
+        None
+    };
+
+    // Process icon if provided
+    let processed_icon_path = if !icon_path.is_empty() && std::path::Path::new(&icon_path).exists()
+    {
+        match process_icon_image(&icon_path, &app_handle).await {
+            Ok(processed_path) => {
+                println!(
+                    "Successfully processed icon to 120x120: {:?}",
+                    processed_path
+                );
+                Some(processed_path)
+            }
+            Err(e) => {
+                println!("Failed to process icon, using original: {}", e);
+                Some(std::path::PathBuf::from(&icon_path))
+            }
+        }
+    } else {
+        None
+    };
+
+    // Now create the toast notification after all async operations are complete
+    // Use your app's identifier from tauri.conf.json
+    let app_id = "com.mohamed.unlockit";
+    println!("Using app ID for toast: {}", app_id);
+
+    let mut toast = Toast::new(app_id)
+        .title("🏆 Achievement Unlocked!")
+        .text1(&game_name)
+        .text2(&achievement_name)
+        .duration(Duration::Long) // Use Long duration for better visibility
+        .sound(Some(Sound::Default)); // Always use default sound for the toast
+
+    // Add hero image if processed successfully
+    if let Some(hero_path) = processed_hero_path {
+        println!("Adding hero image: {:?}", hero_path);
+        toast = toast.hero(&hero_path, "Game Hero Image");
     }
-    
+
+    // Add icon if processed successfully
+    if let Some(icon_path_buf) = processed_icon_path {
+        println!("Adding icon: {:?}", icon_path_buf);
+        toast = toast.icon(&icon_path_buf, IconCrop::Square, "Achievement Icon");
+    }
+
     // Show the toast notification
-    toast.show().map_err(|e| format!("Failed to show toast notification: {}", e))?;
-    
-    println!("Toast notification shown for achievement: {} in game: {}", achievement_name, game_name);
+    toast
+        .show()
+        .map_err(|e| format!("Failed to show toast notification: {}", e))?;
+
+    println!(
+        "Toast notification shown for achievement: {} in game: {}",
+        achievement_name, game_name
+    );
     Ok(())
+}
+
+// Helper function to process icon image to 120x120 pixels using native Rust
+async fn process_icon_image(
+    icon_path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<std::path::PathBuf, String> {
+    println!("🔍 ICON PROCESSING (Native Rust):");
+    println!("Input icon path: {}", icon_path);
+    println!(
+        "Icon file exists: {}",
+        std::path::Path::new(icon_path).exists()
+    );
+
+    // Get temp directory for processed icon
+    let temp_dir = app_handle
+        .path()
+        .temp_dir()
+        .map_err(|e| format!("Failed to get temp directory: {}", e))?;
+
+    println!("Temp directory: {:?}", temp_dir);
+
+    let input_path = std::path::Path::new(icon_path);
+    let file_name = input_path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("achievement_icon");
+
+    let output_path = temp_dir.join(format!("icon_120x120_{}.png", file_name));
+    println!("Output path will be: {:?}", output_path);
+
+    // Use the `image` crate for native Rust image processing
+    match image::open(icon_path) {
+        Ok(img) => {
+            println!("✅ Image loaded successfully");
+            println!("Original dimensions: {}x{}", img.width(), img.height());
+
+            // Resize to exactly 120x120 pixels
+            let resized = img.resize_exact(120, 120, image::imageops::FilterType::Lanczos3);
+            println!("Resized to: {}x{}", resized.width(), resized.height());
+
+            // Save as PNG
+            match resized.save_with_format(&output_path, image::ImageFormat::Png) {
+                Ok(_) => {
+                    println!("✅ Successfully saved processed icon to: {:?}", output_path);
+
+                    if output_path.exists() {
+                        let metadata = std::fs::metadata(&output_path)
+                            .map_err(|e| format!("Failed to get output file metadata: {}", e))?;
+                        println!("Output file size: {} bytes", metadata.len());
+                        Ok(output_path)
+                    } else {
+                        Err("Output file was not created".to_string())
+                    }
+                }
+                Err(e) => {
+                    let error_msg = format!("Failed to save resized image: {}", e);
+                    println!("❌ {}", error_msg);
+                    Err(error_msg)
+                }
+            }
+        }
+        Err(e) => {
+            let error_msg = format!("Failed to open/decode image: {}", e);
+            println!("❌ {}", error_msg);
+            Err(error_msg)
+        }
+    }
+}
+
+// Helper function to process hero image (blur and darken) using native Rust
+async fn process_hero_image(
+    hero_path: &str,
+    app_handle: &tauri::AppHandle,
+) -> Result<std::path::PathBuf, String> {
+    println!("🔍 HERO IMAGE PROCESSING (Native Rust):");
+    println!("Input hero path: {}", hero_path);
+
+    // Get temp directory for processed image
+    let temp_dir = app_handle
+        .path()
+        .temp_dir()
+        .map_err(|e| format!("Failed to get temp directory: {}", e))?;
+
+    let input_path = std::path::Path::new(hero_path);
+    let file_name = input_path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("hero_image");
+
+    let output_path = temp_dir.join(format!("processed_hero_{}.png", file_name));
+    println!("Output path will be: {:?}", output_path);
+
+    // Use the `image` crate for native Rust image processing
+    match image::open(hero_path) {
+        Ok(mut img) => {
+            println!("✅ Hero image loaded successfully");
+            println!("Original dimensions: {}x{}", img.width(), img.height());
+
+            // Apply blur effect (simple box blur approximation)
+            img = img.blur(3.0);
+
+            // Darken the image by reducing brightness
+            img = img.brighten(-50); // Darken by reducing brightness
+
+            // Save as PNG
+            match img.save_with_format(&output_path, image::ImageFormat::Png) {
+                Ok(_) => {
+                    println!("✅ Successfully processed hero image to: {:?}", output_path);
+                    Ok(output_path)
+                }
+                Err(e) => {
+                    let error_msg = format!("Failed to save processed hero image: {}", e);
+                    println!("❌ {}", error_msg);
+                    // Fallback: just copy the original
+                    std::fs::copy(hero_path, &output_path)
+                        .map_err(|e| format!("Failed to copy original hero image: {}", e))?;
+                    println!("📄 Used original hero image as fallback");
+                    Ok(output_path)
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Failed to process hero image: {}", e);
+            // Fallback: just copy the original
+            std::fs::copy(hero_path, &output_path)
+                .map_err(|e| format!("Failed to copy original hero image: {}", e))?;
+            println!("📄 Used original hero image as fallback");
+            Ok(output_path)
+        }
+    }
+}
+
+// Helper function to play custom sound using Windows API
+#[cfg(windows)]
+async fn play_custom_sound(sound_path: &std::path::Path) {
+    use std::os::windows::ffi::OsStrExt;
+
+    // Convert path to wide string for Windows API
+    let wide_path: Vec<u16> = sound_path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // Spawn a thread to play the sound asynchronously
+    let wide_path_clone = wide_path.clone();
+    tokio::spawn(async move {
+        unsafe {
+            // Use Windows PlaySoundW API to play the custom sound
+            #[link(name = "winmm")]
+            extern "system" {
+                fn PlaySoundW(
+                    psz_sound: *const u16,
+                    hmod: *const std::ffi::c_void,
+                    fd_sound: u32,
+                ) -> i32;
+            }
+
+            const SND_FILENAME: u32 = 0x00020000;
+            const SND_ASYNC: u32 = 0x00000001;
+            const SND_NODEFAULT: u32 = 0x00000002;
+
+            let result = PlaySoundW(
+                wide_path_clone.as_ptr(),
+                std::ptr::null(),
+                SND_FILENAME | SND_ASYNC | SND_NODEFAULT,
+            );
+
+            if result == 0 {
+                println!("Failed to play custom sound");
+            } else {
+                println!("Custom sound played successfully");
+            }
+        }
+    });
+}
+
+#[cfg(not(windows))]
+async fn play_custom_sound(_sound_path: &std::path::Path) {
+    println!("Custom sound playback not supported on this platform");
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())

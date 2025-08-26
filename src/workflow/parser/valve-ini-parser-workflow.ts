@@ -14,37 +14,41 @@ const useValveIniParser = ({
   // Implementation of the Valve INI parser workflow
 
   const fileRegex = /achievements\.bin$/i;
-  const findAchievementsBin = async () => {
-    // Recursively search for achievements.bin starting from exePath
-    async function searchDir(dir: string): Promise<string | null> {
-      // remove the .exe part
-      if (dir.endsWith(".exe")) {
-        dir = dir.slice(0, dir.lastIndexOf("\\"));
-      }
-      try {
-        const entries = await readDir(dir);
-        for (const entry of entries) {
-          if (fileRegex.test(entry.name) && entry.isFile) {
-            return await join(dir, entry.name);
+
+  const parseBinFileForAchievements = async (
+    app_id: number = appid,
+    exe_path: string = exePath
+  ) => {
+    if (await checkExePath(exe_path)) {
+      // Create a temporary findAchievementsBin function with the provided exe_path
+      const findAchievementsBinWithPath = async (searchPath: string) => {
+        async function searchDir(dir: string): Promise<string | null> {
+          if (dir.endsWith(".exe")) {
+            dir = dir.slice(0, dir.lastIndexOf("\\"));
+          }
+          try {
+            const entries = await readDir(dir);
+            for (const entry of entries) {
+              if (fileRegex.test(entry.name) && entry.isFile) {
+                return await join(dir, entry.name);
+              }
+            }
+            for (const entry of entries) {
+              if (entry.isDirectory) {
+                const subdirPath = await join(dir, entry.name);
+                const found = await searchDir(subdirPath);
+                if (found) return found;
+              }
+            }
+            return null;
+          } catch (e) {
+            return null;
           }
         }
-        for (const entry of entries) {
-          if (entry.isDirectory) {
-            const subdirPath = await join(dir, entry.name);
-            const found = await searchDir(subdirPath);
-            if (found) return found;
-          }
-        }
-        return null;
-      } catch (e) {
-        return null;
-      }
-    }
-    return await searchDir(exePath);
-  };
-  const parseBinFileForAchievements = async () => {
-    if (await checkExePath(exePath)) {
-      const achievementsBinPath = await findAchievementsBin();
+        return await searchDir(searchPath);
+      };
+
+      const achievementsBinPath = await findAchievementsBinWithPath(exe_path);
       if (achievementsBinPath) {
         // Read the file as text
         const content = await readTextFile(achievementsBinPath);
@@ -59,7 +63,7 @@ const useValveIniParser = ({
             achievedAt: Number(match[2]),
           });
         }
-        await saveToTrackList(appid, achievementsBinPath);
+        await saveToTrackList(app_id, achievementsBinPath);
         return achievementEntries;
       }
     }

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import useValveIniParser from "./valve-ini-parser-workflow";
 import { Achievement, SteamSchemaResponse } from "@/types/achievements";
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
@@ -32,19 +32,20 @@ const useParsingWorkflow = ({
     // This ensures no duplicate achievements and all sources are considered.
     // Example: You could collect all achievements from each parser, merge them and keep the tracker on the latest update.
     // Sorry english is not my first language :(
-    const Type_ALI213 = await parseBinFileForAchievements();
+    console.log(`Parsing achievements...${app_id}, ${exe_path}`);
+    const Type_ALI213 = await parseBinFileForAchievements(app_id, exe_path);
     if (Type_ALI213 && Type_ALI213.length > 0) {
       await LoopAndUpdate(Type_ALI213, app_id);
     }
-    const Type_RUNE = await parseRuneFolder();
+    const Type_RUNE = await parseRuneFolder(app_id, exe_path);
     if (Type_RUNE && Type_RUNE.length > 0) {
       await LoopAndUpdate(Type_RUNE, app_id);
     }
-    const Type_CODEX = await parseCodexFolder();
+    const Type_CODEX = await parseCodexFolder(app_id, exe_path);
     if (Type_CODEX && Type_CODEX.length > 0) {
       await LoopAndUpdate(Type_CODEX, app_id);
     }
-    const Type_ONLINE_FIX = await parseOnlineFixFolder();
+    const Type_ONLINE_FIX = await parseOnlineFixFolder(app_id, exe_path);
     if (Type_ONLINE_FIX && Type_ONLINE_FIX.length > 0) {
       await LoopAndUpdate(Type_ONLINE_FIX, app_id);
     }
@@ -53,53 +54,54 @@ const useParsingWorkflow = ({
     app_id: string,
     { name, achievedAt }: { name: string; achievedAt: number }
   ) {
-    // Use the appid to get the achievement file
+    // Always read from the Tauri store (persistent store) as source of truth
+    const achievementsStore = await load("achievements.json");
+    const currentAchievementData: SteamSchemaResponse | null | undefined =
+      await achievementsStore.get(`achievements_${app_id}`);
+
+    if (!currentAchievementData) {
+      console.error("No achievement data found in Tauri store");
+      return false;
+    }
+
+    // Use the current Tauri store data as the source of truth
+    const achievements: Achievement[] =
+      currentAchievementData.game?.availableGameStats?.achievements || [];
+    const updateAchievements = achievements.map((ach) =>
+      ach.name === name
+        ? {
+            ...ach,
+            hidden: 0,
+            defaultvalue: 1,
+            achievedAt: achievedAt.toString(),
+          }
+        : ach
+    );
+
+    // Update the achievement data
+    const updated: SteamSchemaResponse = {
+      ...currentAchievementData,
+      game: {
+        ...currentAchievementData.game,
+        availableGameStats: {
+          ...currentAchievementData.game?.availableGameStats,
+          achievements: updateAchievements,
+        },
+      },
+      gameId: Number(app_id),
+    };
+
+    // Write back to Tauri store
+    await achievementsStore.set(`achievements_${app_id}`, updated);
+    await achievementsStore.save();
+
+    // Also write to file to keep it in sync
     const dir = await appLocalDataDir();
     const filePath = await join(
       dir,
       "achievements",
       `achievements_${app_id}.json`
     );
-    let getFile;
-    try {
-      getFile = await readFile(filePath);
-      getFile = new TextDecoder().decode(getFile);
-    } catch (e) {
-      // File does not exist or cannot be read
-      console.error("We Found AN Error");
-      return false;
-    }
-    let parsed;
-    try {
-      parsed =
-        typeof getFile === "string"
-          ? JSON.parse(getFile)
-          : JSON.parse(new TextDecoder().decode(getFile));
-    } catch (e) {
-      // Invalid JSON
-      console.error("Can't Parse");
-      return false;
-    }
-    const achievements: Achievement[] =
-      parsed.game?.availableGameStats?.achievements || [];
-    const updateAchievements = achievements.map((ach) =>
-      ach.name === name
-        ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: achievedAt }
-        : ach
-    );
-
-    // Update the file, preserving all other game data
-    const updated: SteamSchemaResponse = {
-      ...parsed,
-      game: {
-        ...parsed.game,
-        availableGameStats: {
-          ...parsed.game?.availableGameStats,
-          achievements: updateAchievements,
-        },
-      },
-      gameId: appid,
-    };
     await writeFile(
       filePath,
       new TextEncoder().encode(JSON.stringify(updated, null, 2))
@@ -117,10 +119,8 @@ const useParsingWorkflow = ({
         achievedAt: achievement.achievedAt,
       });
       if (data) {
-        const achievementsStore = await load("achievements.json");
-        await achievementsStore.set(`achievements_${appid}`, data);
-        await achievementsStore.save();
-        // Force store update by passing a new reference to trigger React re-render
+        // Update Zustand store to trigger React re-render
+        // The Tauri store is already updated in unlockAchievement function
         updateAchievement(appid, { ...data });
       }
     }

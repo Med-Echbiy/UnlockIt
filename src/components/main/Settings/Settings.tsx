@@ -116,6 +116,21 @@ function SettingsDialog() {
             >
               {isLoading ? "Please Wait..." : "Save"}
             </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await invoke("test_toast_notification");
+                  toast.success("Test notification sent!");
+                } catch (error) {
+                  console.error("Test notification failed:", error);
+                  toast.error("Test notification failed: " + error);
+                }
+              }}
+              variant='outline'
+              className='mt-2'
+            >
+              Test Toast Notification
+            </Button>
           </div>
         </div>
       </DialogContent>

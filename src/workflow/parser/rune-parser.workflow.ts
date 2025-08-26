@@ -1,7 +1,5 @@
-import useAchievementsStore from "@/store/achievements-store";
 import { path } from "@tauri-apps/api";
 import { readFile } from "@tauri-apps/plugin-fs";
-import useInitialWorkflow from "../initial_workflow";
 import sharedParsingWorkflow from "./shared-parse-workflow";
 const useRuneParserWorkflow = ({
   appid,
@@ -12,31 +10,35 @@ const useRuneParserWorkflow = ({
 }) => {
   const { saveToTrackList } = sharedParsingWorkflow();
   // Your implementation here
-  async function getTheRunFolder() {
+  async function parseRuneFolder(
+    app_id: number = appid,
+    _exe_path: string = exePath
+  ) {
     try {
-      const publicPath = await path.publicDir();
+      // Create a dynamic getTheRunFolder function with the provided app_id
+      const getTheRunFolderWithId = async () => {
+        try {
+          const publicPath = await path.publicDir();
+          return path.join(
+            publicPath,
+            "Documents",
+            "Steam",
+            "RUNE",
+            app_id.toString()
+          );
+        } catch (error) {
+          return false;
+        }
+      };
 
-      return path.join(
-        publicPath,
-        "Documents",
-        "Steam",
-        "RUNE",
-        appid.toString()
-      );
-    } catch (error) {
-      return false;
-    }
-  }
-  async function parseRuneFolder() {
-    try {
-      const runFolder = await getTheRunFolder();
+      const runFolder = await getTheRunFolderWithId();
       if (!runFolder) return false;
       // get the ini file
       const filePath = await path.join(runFolder, "achievements.ini");
 
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
 
-      await saveToTrackList(appid, filePath);
+      await saveToTrackList(app_id, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {

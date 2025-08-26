@@ -1,7 +1,5 @@
-import useAchievementsStore from "@/store/achievements-store";
 import { path } from "@tauri-apps/api";
 import { readFile } from "@tauri-apps/plugin-fs";
-import useInitialWorkflow from "../initial_workflow";
 import sharedParsingWorkflow from "./shared-parse-workflow";
 const useOnlineFixParserWorkflow = ({
   appid,
@@ -12,19 +10,28 @@ const useOnlineFixParserWorkflow = ({
 }) => {
   const { saveToTrackList } = sharedParsingWorkflow();
   // Your implementation here
-  async function getTheOnlineFixFolder() {
+  async function parseOnlineFixFolder(
+    app_id: number = appid,
+    _exe_path: string = exePath
+  ) {
     try {
-      const publicPath = await path.publicDir();
+      // Create a dynamic getTheOnlineFixFolder function with the provided app_id
+      const getTheOnlineFixFolderWithId = async () => {
+        try {
+          const publicPath = await path.publicDir();
+          return path.join(
+            publicPath,
+            "Documents",
+            "OnlineFix",
+            app_id.toString()
+          );
+        } catch (error) {
+          console.error(error);
+          return false;
+        }
+      };
 
-      return path.join(publicPath, "Documents", "OnlineFix", appid.toString());
-    } catch (error) {
-      console.error(error);
-      return false;
-    }
-  }
-  async function parseOnlineFixFolder() {
-    try {
-      const onlineFixFolder = await getTheOnlineFixFolder();
+      const onlineFixFolder = await getTheOnlineFixFolderWithId();
 
       if (!onlineFixFolder) return false;
       // get the ini file
@@ -36,7 +43,7 @@ const useOnlineFixParserWorkflow = ({
 
       const readIniFile = new TextDecoder().decode(await readFile(filePath));
 
-      await saveToTrackList(appid, filePath);
+      await saveToTrackList(app_id, filePath);
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {
