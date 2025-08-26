@@ -1071,6 +1071,23 @@ async fn play_custom_sound(sound_path: &std::path::Path) {
 async fn play_custom_sound(_sound_path: &std::path::Path) {
     println!("Custom sound playback not supported on this platform");
 }
+
+#[tauri::command]
+fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1082,6 +1099,79 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(ProcessManager::new())
+        .setup(|app| {
+            use tauri::menu::{Menu, MenuItem};
+            use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+            
+            // Create tray menu
+            let show_item = MenuItem::with_id(app, "show", "Show UnlockIt", true, None::<&str>)?;
+            let hide_item = MenuItem::with_id(app, "hide", "Hide UnlockIt", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            
+            let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
+            
+            // Build tray icon
+            let _tray = TrayIconBuilder::with_id("main-tray")
+                .menu(&menu)
+                .menu_on_left_click(false)
+                .on_menu_event(move |app, event| match event.id.as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "hide" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.hide();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = if window.is_visible().unwrap_or(false) {
+                                window.hide()
+                            } else {
+                                window.show().and_then(|_| window.set_focus())
+                            };
+                        }
+                    }
+                })
+                .build(app)?;
+            
+            // Handle window close event to hide instead of exit
+            if let Some(window) = app.get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                
+                window.on_window_event(move |event| {
+                    match event {
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            // Prevent the window from closing
+                            api.prevent_close();
+                            
+                            // Hide the window instead
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.hide();
+                            }
+                        }
+                        _ => {}
+                    }
+                });
+            }
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             fetch_achievements,
@@ -1093,6 +1183,8 @@ pub fn run() {
             stop_playtime_tracking,
             track_files,
             toast_notification,
+            show_window,
+            hide_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
