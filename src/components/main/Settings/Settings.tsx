@@ -54,7 +54,7 @@ function SettingsDialog() {
     }
     setIsLoading(true);
     try {
-      const result = await invoke("fetch_achievements", {
+      await invoke("fetch_achievements", {
         apiKey: apiKey.trim(),
         appid: SUBNAUTICA_APP_ID,
       });

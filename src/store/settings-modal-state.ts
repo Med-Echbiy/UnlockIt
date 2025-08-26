@@ -4,7 +4,7 @@ interface State {
   open: boolean;
   toggle: () => void;
 }
-const settingsModalStore = create<State>((set, get) => ({
+const settingsModalStore = create<State>((set) => ({
   open: false,
   toggle: () => {
     set((state) => ({ open: !state.open }));

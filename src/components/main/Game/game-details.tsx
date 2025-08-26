@@ -65,7 +65,7 @@ function GameDetailsHeader({ id }: { id: string }) {
   const { playtime, isRunning, startTracking, stopTracking } =
     useRustTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
   const [coverImg, setCoverImage] = useState<string | null>(null);
-  const [backgroundImg, setBackgroundImage] = useState<string | null>(null);
+  // const [backgroundImg, setBackgroundImage] = useState<string | null>(null);
   const [installed, setInstalled] = useState<boolean>(false);
 
   useEffect(() => {
@@ -79,11 +79,11 @@ function GameDetailsHeader({ id }: { id: string }) {
             path: game.header_image,
           })
         );
-        setBackgroundImage(
-          await invoke("load_image", {
-            path: game.background,
-          })
-        );
+        // setBackgroundImage(
+        //   await invoke("load_image", {
+        //     path: game.background,
+        //   })
+        // );
       }
     })();
   }, [id]);

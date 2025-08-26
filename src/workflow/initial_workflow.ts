@@ -39,7 +39,7 @@ const useInitialWorkflow = () => {
       for (const [, value] of Object.entries(obj)) {
         addGame(value as GameStoreData);
       }
-      for (const [key, value] of Object.entries(objAchievements)) {
+      for (const [_key, value] of Object.entries(objAchievements)) {
         addAchievement(value as SteamSchemaResponse);
       }
       //

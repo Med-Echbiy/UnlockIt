@@ -97,7 +97,9 @@ export function GameCard({ game, index }: GameCardProps) {
   const achievements = Array.isArray(rawAchievements)
     ? rawAchievements
     : (game as any).achievements || [];
-  const unlocked = achievements.filter((e) => e?.defaultvalue !== 0).length;
+  const unlocked = achievements.filter(
+    (e: { defaultvalue: number }) => e?.defaultvalue !== 0
+  ).length;
   const total = achievements.length;
 
   const tier = getAchievementTier(unlocked, total);

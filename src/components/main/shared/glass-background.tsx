@@ -5,3 +5,4 @@ function GlassBackground({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+export default GlassBackground;

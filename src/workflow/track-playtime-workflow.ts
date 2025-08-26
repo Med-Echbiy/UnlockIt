@@ -16,7 +16,7 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     } catch (e) {}
   }
 
-  async function handleProcessExit(code?: number) {
+  async function handleProcessExit(_code?: number) {
     if (intervalRef.current !== null) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -55,7 +55,7 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
             const code = arg && typeof arg === "object" ? arg.code : arg;
             handleProcessExit(code);
           });
-          anyChild.on("error", (e: any) => {
+          anyChild.on("error", () => {
             handleProcessExit();
           });
         } else if (typeof anyChild.wait === "function") {

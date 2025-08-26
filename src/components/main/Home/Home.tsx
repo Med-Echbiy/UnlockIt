@@ -1,6 +1,6 @@
 import useMyGamesStore from "@/store/my-games-store";
 import useParsingWorkflow from "@/workflow/parser/parse-workflow";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { SyncAchievementsLoading } from "../shared/sync-achievements-loading";
 
 function Home() {

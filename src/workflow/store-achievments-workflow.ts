@@ -1,5 +1,5 @@
 import { Achievement, SteamSchemaResponse } from "@/types/achievements";
-import { appDataDir, appLocalDataDir } from "@tauri-apps/api/path";
+import { appLocalDataDir } from "@tauri-apps/api/path";
 import { writeFile, mkdir, readFile } from "@tauri-apps/plugin-fs";
 
 // Helper to join paths safely regardless of trailing/leading slashes

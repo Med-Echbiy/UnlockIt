@@ -1,4 +1,4 @@
-import { appDataDir, appLocalDataDir } from "@tauri-apps/api/path";
+import { appLocalDataDir } from "@tauri-apps/api/path";
 import { fetch } from "@tauri-apps/plugin-http";
 import { mkdir, writeFile, readFile } from "@tauri-apps/plugin-fs";
 // Helper to join paths safely regardless of trailing/leading slashes
