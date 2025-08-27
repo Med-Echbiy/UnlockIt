@@ -22,6 +22,17 @@ import {
   Trophy,
   RefreshCcw,
   Trash,
+  Edit,
+  Save,
+  X,
+  CircleDot,
+  CheckCircle2,
+  GamepadIcon,
+  Medal,
+  RotateCcw,
+  Gem,
+  Award,
+  Crown,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -35,6 +46,8 @@ import { motion } from "framer-motion";
 import useParsingWorkflow from "@/workflow/parser/parse-workflow";
 import useResetAchievementsWorkflow from "@/workflow/reset-achievements-workflow";
 import useUIStateStore from "@/store/ui-state-store";
+import useUpdateGameWorkflow from "@/workflow/update-game-workflow";
+import { Input } from "@/components/ui/input";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +74,7 @@ export default GameDetails;
 
 function GameDetailsHeader({ id }: { id: string }) {
   const game = useMyGamesStore((state) => state.getGameById(id as string));
+  const { setGameStatus, setGameRating } = useUpdateGameWorkflow();
 
   const { playtime, isRunning, startTracking, stopTracking } =
     useRustTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
@@ -91,7 +105,7 @@ function GameDetailsHeader({ id }: { id: string }) {
     <Card className='grid grid-cols-1 w-full'>
       <CardHeader>
         <div className='w-full flex items-center gap-6'>
-          <div className='flex items-center gap-4'>
+          <div className='flex items-center gap-4 min-w-[300px]'>
             {coverImg && (
               <img
                 src={coverImg}
@@ -112,7 +126,7 @@ function GameDetailsHeader({ id }: { id: string }) {
           </div>
           <Separator orientation='vertical' className='min-h-10' />
           <div className='flex-grow flex-2'>
-            <div className='flex gap-2 md:gap-4 lg:gap-6 items-center'>
+            <div className='flex gap-2 md:gap-4 lg:gap-6 items-center flex-wrap'>
               {!isRunning ? (
                 <Button
                   disabled={!installed}
@@ -164,6 +178,18 @@ function GameDetailsHeader({ id }: { id: string }) {
                   )}
                 </div>
               </Button>
+
+              {/* Game Status Selector */}
+              <GameStatusSelector
+                currentStatus={game?.status || "not-played"}
+                onStatusChange={(status) => setGameStatus(id, status)}
+              />
+
+              {/* Game Rating */}
+              <GameRatingInput
+                currentRating={game?.my_rating || "N/A"}
+                onRatingChange={(rating) => setGameRating(id, rating)}
+              />
             </div>
           </div>
         </div>
@@ -439,5 +465,232 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
         </CardHeader>
       </Card>
     </motion.div>
+  );
+}
+
+// Status icons mapping
+const getStatusIcon = (status: GameStoreData["status"]) => {
+  const iconMap = {
+    "not-played": CircleDot,
+    playing: GamepadIcon,
+    played: CheckCircle2,
+    completed: Trophy,
+    beaten: Medal,
+    trash: Trash,
+  };
+  return iconMap[status] || CircleDot;
+};
+
+// Status colors mapping
+const getStatusColor = (status: GameStoreData["status"]) => {
+  const colorMap = {
+    "not-played": "text-gray-400 bg-gray-100 hover:bg-gray-200 border-gray-300",
+    playing: "text-blue-400 bg-blue-100 hover:bg-blue-200 border-blue-300",
+    played: "text-green-400 bg-green-100 hover:bg-green-200 border-green-300",
+    completed:
+      "text-yellow-400 bg-yellow-100 hover:bg-yellow-200 border-yellow-300",
+    beaten:
+      "text-purple-400 bg-purple-100 hover:bg-purple-200 border-purple-300",
+    trash: "text-red-400 bg-red-100 hover:bg-red-200 border-red-300",
+  };
+  return colorMap[status] || colorMap["not-played"];
+};
+
+// Rating styling helpers
+const getRatingTier = (rating: string) => {
+  if (rating === "N/A") return "na";
+  const numRating = Number(rating);
+  if (numRating <= 10) return "red";
+  if (numRating <= 30) return "bronze";
+  if (numRating <= 60) return "silver";
+  if (numRating <= 90) return "gold";
+  return "diamond";
+};
+
+const getRatingIcon = (rating: string) => {
+  const tier = getRatingTier(rating);
+  const iconMap = {
+    na: Star,
+    red: XCircle,
+    bronze: Medal,
+    silver: Award,
+    gold: Trophy,
+    diamond: Gem,
+  };
+  return iconMap[tier] || Star;
+};
+
+const getRatingStyles = (rating: string) => {
+  const tier = getRatingTier(rating);
+  const styleMap = {
+    na: "text-gray-600 bg-gray-50 hover:bg-gray-100 border-gray-300",
+    red: "text-red-600 bg-red-50 hover:bg-red-100 border-red-300",
+    bronze: "text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-300",
+    silver: "text-slate-600 bg-slate-50 hover:bg-slate-100 border-slate-300",
+    gold: "text-yellow-600 bg-yellow-50 hover:bg-yellow-100 border-yellow-300",
+    diamond: "text-cyan-600 bg-cyan-50 hover:bg-cyan-100 border-cyan-300",
+  };
+  return styleMap[tier] || styleMap.na;
+};
+
+const getRatingLabel = (rating: string) => {
+  const tier = getRatingTier(rating);
+  const labelMap = {
+    na: "N/A",
+    red: "Poor",
+    bronze: "Fair",
+    silver: "Good",
+    gold: "Great",
+    diamond: "Masterpiece",
+  };
+  return labelMap[tier] || "N/A";
+};
+
+// Game Status Selector Component
+function GameStatusSelector({
+  currentStatus,
+  onStatusChange,
+}: {
+  currentStatus: GameStoreData["status"];
+  onStatusChange: (status: GameStoreData["status"]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const StatusIcon = getStatusIcon(currentStatus);
+
+  const statusOptions: { value: GameStoreData["status"]; label: string }[] = [
+    { value: "not-played", label: "Not Played" },
+    { value: "playing", label: "Playing" },
+    { value: "played", label: "Played" },
+    { value: "completed", label: "Completed" },
+    { value: "beaten", label: "Beaten" },
+    { value: "trash", label: "Trash" },
+  ];
+
+  const handleStatusSelect = (status: GameStoreData["status"]) => {
+    onStatusChange(status);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className='relative'>
+      <Button
+        variant='outline'
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 ${getStatusColor(currentStatus)}`}
+      >
+        <StatusIcon className='w-4 h-4' />
+        <span className='hidden sm:inline'>
+          {statusOptions.find((s) => s.value === currentStatus)?.label ||
+            "Not Played"}
+        </span>
+      </Button>
+
+      {isOpen && (
+        <>
+          <div
+            className='fixed inset-0 z-10'
+            onClick={() => setIsOpen(false)}
+          />
+          <div className='absolute top-full mt-1 right-0 z-20 w-48 rounded-md shadow-lg border border-gray-200'>
+            {statusOptions.map((option) => {
+              const OptionIcon = getStatusIcon(option.value);
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => handleStatusSelect(option.value)}
+                  className={`
+                    w-full flex items-center gap-2 px-3 bg-card py-2 text-sm text-left hover:bg-gray-800
+                    first:rounded-t-md last:rounded-b-md
+                    ${option.value === currentStatus ? "bg-gray-900" : ""}
+                  `}
+                >
+                  <OptionIcon className='w-4 h-4' />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Game Rating Input Component
+function GameRatingInput({
+  currentRating,
+  onRatingChange,
+}: {
+  currentRating: string;
+  onRatingChange: (rating: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempRating, setTempRating] = useState(currentRating);
+
+  const RatingIcon = getRatingIcon(currentRating);
+  const ratingStyles = getRatingStyles(currentRating);
+  const ratingLabel = getRatingLabel(currentRating);
+
+  const handleSave = () => {
+    // Validate rating (should be N/A or number between 0-100)
+    if (
+      tempRating === "N/A" ||
+      (Number(tempRating) >= 0 &&
+        Number(tempRating) <= 100 &&
+        !isNaN(Number(tempRating)))
+    ) {
+      onRatingChange(tempRating);
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setTempRating(currentRating);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className='flex items-center gap-2'>
+        <Input
+          type='text'
+          value={tempRating}
+          onChange={(e) => setTempRating(e.target.value)}
+          className='w-24 h-8 text-sm'
+          placeholder='N/A or 0-100'
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave();
+            if (e.key === "Escape") handleCancel();
+          }}
+        />
+        <Button size='sm' onClick={handleSave} className='h-8 px-2'>
+          <Save className='w-3 h-3' />
+        </Button>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={handleCancel}
+          className='h-8 px-2'
+        >
+          <X className='w-3 h-3' />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant='outline'
+      onClick={() => setIsEditing(true)}
+      className={`flex items-center gap-2 ${ratingStyles} transition-all duration-200 hover:scale-105`}
+      title={`${ratingLabel} - Click to edit rating`}
+    >
+      <RatingIcon className='w-4 h-4' />
+      <span className='hidden sm:inline font-medium'>{ratingLabel}:</span>
+      <span className='font-bold'>
+        {currentRating === "N/A" ? "N/A" : `${currentRating}/100`}
+      </span>
+      <Edit className='w-3 h-3 opacity-50' />
+    </Button>
   );
 }

@@ -105,10 +105,34 @@ const useAddGameWorkflow = () => {
           about_the_game,
           exePath: gamePath,
           screenshots,
+          status: "not-played" as const,
+          my_rating: "N/A",
         };
         const achievements = await getGameSteamAchievementSchema(
           String(steam_appid)
         );
+
+        try {
+          const howLongToBeatGames = await invoke("get_how_long_to_beat", {
+            gameName: name,
+          });
+
+          // Get the first game result if available;
+          console.log("howLongToBeat", { howLongToBeatGames });
+
+          // Ensure howLongToBeatGames is an array before trying to access it
+          if (
+            Array.isArray(howLongToBeatGames) &&
+            howLongToBeatGames.length > 0
+          ) {
+            const howLongToBeatData = howLongToBeatGames[0];
+            console.log("First HLTB game:", howLongToBeatData);
+          } else {
+            console.log("No HLTB data found or invalid response");
+          }
+        } catch (error) {
+          console.error("Error fetching HowLongToBeat data:", error);
+        }
         setAddGameLoadingProgress(89);
         if (achievements && data) {
           addGame(data);
