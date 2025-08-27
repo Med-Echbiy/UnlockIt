@@ -27,4 +27,12 @@ export interface GameStoreData {
     path_full: string;
     path_thumbnail: string;
   }[];
+  status:
+    | "not-played"
+    | "playing"
+    | "played"
+    | "completed"
+    | "beaten"
+    | "trash";
+  my_rating: string;
 }

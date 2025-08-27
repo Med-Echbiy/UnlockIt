@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager, State};
 // notify crate is used to watch filesystem events
 use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
-
+//how long to beat
 // Structure to manage running processes and their playtimes
 #[derive(Default)]
 struct ProcessManager {
@@ -274,8 +274,7 @@ async fn start_playtime_tracking(
         };
 
         // Save playtime to file
-        let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async {
+        tokio::spawn(async move {
             let app_data_dir = app_handle_clone.path().app_data_dir().unwrap();
             let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
             if let Err(e) = save_playtime(&playtime_file, &appid_clone, final_playtime).await {
@@ -1088,6 +1087,308 @@ fn hide_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+//how long to beat
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize)]
+struct SearchParam {
+    #[serde(rename = "searchType")]
+    search_type: String,
+    #[serde(rename = "searchTerms")]
+    search_terms: Vec<String>,
+    #[serde(rename = "searchPage")]
+    search_page: i32,
+    size: i32,
+    #[serde(rename = "searchOptions")]
+    search_options: SearchOptions,
+    #[serde(rename = "useCache")]
+    use_cache: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchOptions {
+    games: Games,
+    users: SortCategoryContainer,
+    lists: SortCategoryContainer,
+    filter: String,
+    sort: i32,
+    randomizer: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct Games {
+    #[serde(rename = "userId")]
+    user_id: i32,
+    platform: String,
+    #[serde(rename = "sortCategory")]
+    sort_category: String,
+    #[serde(rename = "rangeCategory")]
+    range_category: String,
+    #[serde(rename = "rangeTime")]
+    range_time: RangeTime,
+    gameplay: Gameplay,
+    #[serde(rename = "rangeYear")]
+    range_year: RangeYear,
+    modifier: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RangeTime {
+    min: i32,
+    max: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct RangeYear {
+    min: String,
+    max: String,
+}
+
+#[derive(Debug, Serialize)]
+struct Gameplay {
+    perspective: String,
+    flow: String,
+    genre: String,
+    difficulty: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SortCategoryContainer {
+    #[serde(rename = "sortCategory")]
+    sort_category: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchResult {
+    color: Option<String>,
+    title: Option<String>,
+    category: Option<String>,
+    count: Option<i32>,
+    #[serde(rename = "pageCurrent")]
+    page_current: Option<i32>,
+    #[serde(rename = "pageTotal")]
+    page_total: Option<i32>,
+    #[serde(rename = "pageSize")]
+    page_size: Option<i32>,
+    data: Option<Vec<GameData>>,
+    #[serde(rename = "userData")]
+    user_data: Option<serde_json::Value>,
+    #[serde(rename = "displayModifier")]
+    display_modifier: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GameData {
+    #[serde(rename = "game_id")]
+    game_id: i32,
+    #[serde(rename = "game_name")]
+    game_name: String,
+    #[serde(rename = "game_name_date")]
+    game_name_date: Option<i32>,
+    #[serde(rename = "game_alias")]
+    game_alias: Option<String>,
+    #[serde(rename = "game_type")]
+    game_type: Option<String>,
+    #[serde(rename = "game_image")]
+    game_image: Option<String>,
+    #[serde(rename = "comp_main")]
+    comp_main: Option<i32>,
+    #[serde(rename = "comp_plus")]
+    comp_plus: Option<i32>,
+    #[serde(rename = "comp_100")]
+    comp_100: Option<i32>,
+    #[serde(rename = "comp_all")]
+    comp_all: Option<i32>,
+    #[serde(rename = "comp_main_count")]
+    comp_main_count: Option<i32>,
+    #[serde(rename = "comp_plus_count")]
+    comp_plus_count: Option<i32>,
+    #[serde(rename = "comp_100_count")]
+    comp_100_count: Option<i32>,
+    #[serde(rename = "comp_all_count")]
+    comp_all_count: Option<i32>,
+    #[serde(rename = "invested_co")]
+    invested_co: Option<i32>,
+    #[serde(rename = "invested_mp")]
+    invested_mp: Option<i32>,
+    #[serde(rename = "profile_platform")]
+    profile_platform: Option<String>,
+    #[serde(rename = "profile_dev")]
+    profile_dev: Option<String>,
+    #[serde(rename = "profile_popular")]
+    profile_popular: Option<i32>,
+    #[serde(rename = "review_score")]
+    review_score: Option<i32>,
+    #[serde(rename = "release_world")]
+    release_world: Option<i32>,
+}
+
+async fn get_search_id() -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    // First, get the main page to find the search ID
+    let base_url = "https://howlongtobeat.com";
+    let response = client
+        .get(base_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch main page: {}", e))?;
+    
+    let html = response.text().await
+        .map_err(|e| format!("Failed to read main page: {}", e))?;
+    
+    // Extract the JS file name using regex
+    let js_regex = regex::Regex::new(r"_app-\w*\.js").unwrap();
+    if let Some(js_match) = js_regex.find(&html) {
+        let js_file = js_match.as_str();
+        
+        // Fetch the JS file to extract search ID
+        let js_url = format!("{}/_next/static/chunks/pages/{}", base_url, js_file);
+        let js_response = client
+            .get(&js_url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .send()
+            .await
+            .map_err(|e| format!("Failed to fetch JS file: {}", e))?;
+        
+        let js_content = js_response.text().await
+            .map_err(|e| format!("Failed to read JS file: {}", e))?;
+        
+        // Extract search ID using regex
+        let search_regex = regex::Regex::new(r#""/api/seek/"\.concat\("(\w*?)"\)\.concat\("(\w*?)"\)"#).unwrap();
+        if let Some(captures) = search_regex.captures(&js_content) {
+            let search_id = format!("{}{}", &captures[1], &captures[2]);
+            Ok(search_id)
+        } else {
+            Err("Could not find search ID in JS file".to_string())
+        }
+    } else {
+        Err("Could not find JS file in main page".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_how_long_to_beat(game_name: String) -> Result<serde_json::Value, String> {
+    println!("====================================");
+    println!("Searching for game: {}", game_name);
+
+    let client = reqwest::Client::new();
+    
+    // Get the dynamic search ID
+    let search_id = get_search_id().await?;
+    println!("Using search ID: {}", search_id);
+    
+    // Create search payload matching the plugin's structure
+    let search_param = SearchParam {
+        search_type: "games".to_string(),
+        search_terms: game_name.split_whitespace().map(|s| s.to_string()).collect(),
+        search_page: 1,
+        size: 20,
+        search_options: SearchOptions {
+            games: Games {
+                user_id: 0,
+                platform: "".to_string(),
+                sort_category: "popular".to_string(),
+                range_category: "main".to_string(),
+                range_time: RangeTime { min: 0, max: 0 },
+                gameplay: Gameplay {
+                    perspective: "".to_string(),
+                    flow: "".to_string(),
+                    genre: "".to_string(),
+                    difficulty: "".to_string(),
+                },
+                range_year: RangeYear {
+                    min: "".to_string(),
+                    max: "".to_string(),
+                },
+                modifier: "".to_string(),
+            },
+            users: SortCategoryContainer {
+                sort_category: "postcount".to_string(),
+            },
+            lists: SortCategoryContainer {
+                sort_category: "follows".to_string(),
+            },
+            filter: "".to_string(),
+            sort: 0,
+            randomizer: 0,
+        },
+        use_cache: true,
+    };
+
+    // Make the API request
+    let url = format!("https://howlongtobeat.com/api/seek/{}", search_id);
+    println!("Sending POST request to: {}", url);
+
+    // Add a delay as suggested in the original code
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .header("Origin", "https://howlongtobeat.com")
+        .header("Referer", "https://howlongtobeat.com")
+        .json(&search_param)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    let status = response.status();
+    println!("HTTP Status: {}", status);
+
+    if !status.is_success() {
+        return Err(format!(
+            "HTTP error: {} - {}",
+            status.as_u16(),
+            status.canonical_reason().unwrap_or("Unknown")
+        ));
+    }
+
+    // Parse the response
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
+    println!("Response received, length: {} characters", response_text.len());
+
+    let search_result: SearchResult = serde_json::from_str(&response_text)
+        .map_err(|e| format!("JSON parsing error: {} - Response: {}", e, &response_text[..response_text.len().min(500)]))?;
+
+    // Transform the data to match your frontend expectations
+    if let Some(data) = search_result.data {
+        println!("Found {} game results", data.len());
+        
+        // Transform to a more convenient format
+        let games: Vec<serde_json::Value> = data.into_iter().map(|game| {
+            json!({
+                "game_id": game.game_id,
+                "game_name": game.game_name,
+                "game_image": game.game_image.unwrap_or_default(),
+                "game_type": game.game_type.unwrap_or_default(),
+                "comp_main": game.comp_main.unwrap_or(0),
+                "comp_plus": game.comp_plus.unwrap_or(0),
+                "comp_100": game.comp_100.unwrap_or(0),
+                "comp_all": game.comp_all.unwrap_or(0),
+                "comp_main_count": game.comp_main_count.unwrap_or(0),
+                "comp_plus_count": game.comp_plus_count.unwrap_or(0),
+                "comp_100_count": game.comp_100_count.unwrap_or(0),
+                "comp_all_count": game.comp_all_count.unwrap_or(0),
+                "profile_platform": game.profile_platform.unwrap_or_default(),
+                "profile_dev": game.profile_dev.unwrap_or_default(),
+                "review_score": game.review_score.unwrap_or(0),
+                "release_world": game.release_world.unwrap_or(0)
+            })
+        }).collect();
+        
+        Ok(serde_json::Value::Array(games))
+    } else {
+        println!("No data field found in response");
+        Ok(serde_json::Value::Array(vec![]))
+    }
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1113,7 +1414,7 @@ pub fn run() {
             // Build tray icon
             let _tray = TrayIconBuilder::with_id("main-tray")
                 .menu(&menu)
-                .menu_on_left_click(false)
+                .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
                     "show" => {
                         if let Some(window) = app.get_webview_window("main") {
@@ -1185,6 +1486,7 @@ pub fn run() {
             toast_notification,
             show_window,
             hide_window,
+            get_how_long_to_beat,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
