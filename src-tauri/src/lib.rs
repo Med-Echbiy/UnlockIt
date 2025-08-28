@@ -177,32 +177,56 @@ async fn start_playtime_tracking(
     appid: String,
     exe_path: String,
 ) -> Result<(), String> {
-    println!(
-        "Starting playtime tracking for {} with exe: {}",
-        appid, exe_path
-    );
+    println!("Starting playtime tracking for {} with exe: {}", appid, exe_path);
+    
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| format!("Could not get app data directory: {}", e))?;
 
-    let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
+    let playtime_dir = app_data_dir.join("UnlockIt");
+    let playtime_file = playtime_dir.join("playtimes.json");
+    
+    // Load existing playtime from the correct location
     let existing_playtime = load_playtime(&playtime_file, &appid).await.unwrap_or(0);
+    println!("Loaded existing playtime: {} seconds", existing_playtime);
+    
     {
         let processes = process_manager.processes.lock().unwrap();
         if let Some(info) = processes.get(&appid) {
             if info.is_running {
-                return Err("Process is already running for this app".to_string());
+                return Err("Process is already being tracked for this app".to_string());
             }
         }
     }
+    
     let process_name = std::path::Path::new(&exe_path)
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("")
         .to_string();
-    let child = try_spawn_with_elevation(&exe_path)?;
-    let _child_id = child.id();
+    
+    // Check if process is already running before launching
+    let already_running = is_process_running(&process_name);
+    
+    if !already_running {
+        // Only launch if not already running
+        match try_spawn_with_elevation(&exe_path) {
+            Ok(_child) => {
+                println!("Successfully launched process: {}", process_name);
+                // Give the process time to start
+                thread::sleep(Duration::from_secs(2));
+            }
+            Err(e) => {
+                println!("Failed to launch process: {}", e);
+                // Continue tracking anyway in case it was launched externally
+            }
+        }
+    } else {
+        println!("Process {} is already running, starting tracking", process_name);
+    }
+    
+    // Start tracking regardless of launch success
     {
         let mut processes = process_manager.processes.lock().unwrap();
         processes.insert(
@@ -214,18 +238,21 @@ async fn start_playtime_tracking(
             },
         );
     }
+
     let appid_clone = appid.clone();
     let processes_arc = Arc::clone(&process_manager.processes);
     let app_handle_clone = app_handle.clone();
     let process_name_clone = process_name.clone();
 
     thread::spawn(move || {
-        thread::sleep(Duration::from_secs(2));
+        println!("Starting background monitoring for process: {}", process_name_clone);
+        
+        // Monitor the process
         loop {
             if !is_process_running(&process_name_clone) {
                 break;
             }
-            thread::sleep(Duration::from_secs(5)); // Check every 5 seconds
+            thread::sleep(Duration::from_secs(3)); // Check every 3 seconds for better responsiveness
         }
 
         println!("Process {} is no longer running", process_name_clone);
@@ -235,21 +262,131 @@ async fn start_playtime_tracking(
                 let session_time = info.start_time.elapsed().as_secs();
                 info.accumulated_time += session_time;
                 info.is_running = false;
-                info.accumulated_time
+                let final_time = info.accumulated_time;
+                println!("Final playtime for {}: {} seconds (session: {} seconds)", 
+                        appid_clone, final_time, session_time);
+                final_time
             } else {
                 0
             }
         };
+        
+        // Save playtime asynchronously
         tokio::spawn(async move {
             let app_data_dir = app_handle_clone.path().app_data_dir().unwrap();
             let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
             if let Err(e) = save_playtime(&playtime_file, &appid_clone, final_playtime).await {
                 println!("Failed to save playtime: {}", e);
+            } else {
+                println!("Successfully saved playtime: {} seconds", final_playtime);
             }
         });
     });
 
     Ok(())
+}
+
+#[tauri::command]
+async fn start_process_monitoring(
+    app_handle: tauri::AppHandle,
+    process_manager: State<'_, ProcessManager>,
+    appid: String,
+    exe_path: String,
+) -> Result<(), String> {
+    println!("Starting process monitoring for {} (exe: {})", appid, exe_path);
+    
+    let process_name = std::path::Path::new(&exe_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Could not get app data directory: {}", e))?;
+
+    let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
+    let existing_playtime = load_playtime(&playtime_file, &appid).await.unwrap_or(0);
+    
+    // Check if process is currently running
+    if !is_process_running(&process_name) {
+        return Err(format!("Process {} is not currently running", process_name));
+    }
+    
+    {
+        let mut processes = process_manager.processes.lock().unwrap();
+        if processes.contains_key(&appid) {
+            return Err("Already monitoring this app".to_string());
+        }
+        
+        processes.insert(
+            appid.clone(),
+            ProcessInfo {
+                start_time: Instant::now(),
+                accumulated_time: existing_playtime,
+                is_running: true,
+            },
+        );
+    }
+
+    let appid_clone = appid.clone();
+    let processes_arc = Arc::clone(&process_manager.processes);
+    let app_handle_clone = app_handle.clone();
+    let process_name_clone = process_name.clone();
+
+    thread::spawn(move || {
+        println!("Starting background monitoring for already running process: {}", process_name_clone);
+        
+        loop {
+            if !is_process_running(&process_name_clone) {
+                break;
+            }
+            thread::sleep(Duration::from_secs(3));
+        }
+
+        println!("Process {} is no longer running", process_name_clone);
+        let final_playtime = {
+            let mut processes = processes_arc.lock().unwrap();
+            if let Some(info) = processes.get_mut(&appid_clone) {
+                let session_time = info.start_time.elapsed().as_secs();
+                info.accumulated_time += session_time;
+                info.is_running = false;
+                let final_time = info.accumulated_time;
+                println!("Final playtime for {}: {} seconds (session: {} seconds)", 
+                        appid_clone, final_time, session_time);
+                final_time
+            } else {
+                0
+            }
+        };
+        
+        tokio::spawn(async move {
+            let app_data_dir = app_handle_clone.path().app_data_dir().unwrap();
+            let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
+            if let Err(e) = save_playtime(&playtime_file, &appid_clone, final_playtime).await {
+                println!("Failed to save playtime: {}", e);
+            } else {
+                println!("Successfully saved playtime: {} seconds", final_playtime);
+            }
+        });
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_process_status(
+    _process_manager: State<'_, ProcessManager>,
+    exe_path: String,
+) -> Result<bool, String> {
+    let process_name = std::path::Path::new(&exe_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("")
+        .to_string();
+    
+    Ok(is_process_running(&process_name))
 }
 
 #[tauri::command]
@@ -285,59 +422,82 @@ async fn stop_playtime_tracking(
                 let session_time = info.start_time.elapsed().as_secs();
                 info.accumulated_time += session_time;
                 info.is_running = false;
+                println!("Session time: {} seconds, Total: {} seconds", session_time, info.accumulated_time);
             }
             info.accumulated_time
         } else {
             return Err("No tracking session found for this app".to_string());
         }
     };
+    
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
         .map_err(|e| format!("Could not get app data directory: {}", e))?;
 
-    let playtime_file = app_data_dir.join("Playtime").join("playtimes.json");
+    let playtime_file = app_data_dir.join("UnlockIt").join("playtimes.json");
     save_playtime(&playtime_file, &appid, final_playtime).await?;
 
     Ok(final_playtime)
 }
 
 async fn load_playtime(file_path: &PathBuf, appid: &str) -> Result<u64, String> {
-    if !file_path.exists() {
-        return Ok(0);
+    // Try different possible file locations
+    let possible_paths = vec![
+        file_path.clone(),
+        file_path.parent().unwrap_or(file_path).join("playtimes.json"),
+    ];
+    
+    for path in possible_paths {
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if let Some(playtime) = json.get(appid).and_then(|v| v.as_u64()) {
+                            println!("Loaded playtime {} for app {} from {:?}", playtime, appid, path);
+                            return Ok(playtime);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("Failed to read playtime file {:?}: {}", path, e);
+                }
+            }
+        }
     }
-
-    let content = std::fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read playtime file: {}", e))?;
-
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse playtime JSON: {}", e))?;
-
-    if let Some(playtime) = json.get(appid).and_then(|v| v.as_u64()) {
-        Ok(playtime)
-    } else {
-        Ok(0)
-    }
+    
+    println!("No existing playtime found for app {}", appid);
+    Ok(0)
 }
 
 async fn save_playtime(file_path: &PathBuf, appid: &str, playtime: u64) -> Result<(), String> {
     if let Some(parent) = file_path.parent() {
         create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
-    let mut data = if file_path.exists() {
-        let content = std::fs::read_to_string(file_path)
+    
+    // Ensure we use the correct path structure
+    let corrected_path = if file_path.to_string_lossy().contains("Playtime") {
+        file_path.clone()
+    } else {
+        file_path.parent().unwrap_or(file_path).join("playtimes.json")
+    };
+    
+    let mut data = if corrected_path.exists() {
+        let content = std::fs::read_to_string(&corrected_path)
             .map_err(|e| format!("Failed to read existing playtime file: {}", e))?;
         serde_json::from_str::<serde_json::Value>(&content).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
     };
+    
     data[appid] = serde_json::Value::Number(serde_json::Number::from(playtime));
     let content = serde_json::to_string_pretty(&data)
         .map_err(|e| format!("Failed to serialize playtime data: {}", e))?;
 
-    std::fs::write(file_path, content)
+    std::fs::write(&corrected_path, content)
         .map_err(|e| format!("Failed to write playtime file: {}", e))?;
 
+    println!("Saved playtime {} for app {} to {:?}", playtime, appid, corrected_path);
     Ok(())
 }
 
@@ -1296,6 +1456,8 @@ pub fn run() {
             fetch_game_metadata_from_steam,
             load_image,
             start_playtime_tracking,
+            start_process_monitoring,
+            check_process_status,
             get_current_playtime,
             stop_playtime_tracking,
             track_files,

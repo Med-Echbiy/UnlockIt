@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { GameStoreData } from "@/types/Game";
 import { Star, Calendar, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GameActions } from "./game-actions";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 

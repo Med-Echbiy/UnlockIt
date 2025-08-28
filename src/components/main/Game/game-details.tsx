@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import useAchievementsStore from "@/store/achievements-store";
 import useMyGamesStore from "@/store/my-games-store";
-import useRustTrackPlaytimeWorkflow from "@/workflow/rust-track-playtime-workflow";
+import useEnhancedTrackPlaytimeWorkflow from "@/workflow/enhanced-track-playtime-workflow";
 import useHowLongToBeatWorkflow from "@/workflow/how-long-to-beat-workflow";
 import { HowLongToBeatGame } from "@/types/howLongToBeat";
 import { invoke } from "@tauri-apps/api/core";
@@ -87,8 +87,8 @@ function GameDetailsHeader({ id }: { id: string }) {
   const game = useMyGamesStore((state) => state.getGameById(id as string));
   const { setGameStatus, setGameRating } = useUpdateGameWorkflow();
 
-  const { playtime, isRunning, startTracking, stopTracking } =
-    useRustTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
+  const { isRunning, isMonitoring, formatPlaytime, smartStart, stopTracking } =
+    useEnhancedTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
   const [coverImg, setCoverImage] = useState<string | null>(null);
   const [installed, setInstalled] = useState<boolean>(false);
 
@@ -136,11 +136,11 @@ function GameDetailsHeader({ id }: { id: string }) {
                 <Button
                   disabled={!installed}
                   className='max-w-fit'
-                  onClick={() => startTracking()}
+                  onClick={() => smartStart()}
                 >
                   <div className='flex items-center gap-2'>
                     <Play />
-                    Play
+                    {isMonitoring ? "Monitor" : "Play"}
                   </div>
                 </Button>
               ) : (
@@ -157,10 +157,18 @@ function GameDetailsHeader({ id }: { id: string }) {
               )}
               <Button className='flex items-center gap-2' variant='outline'>
                 <Clock />
-                <span>
-                  Time Played: {Math.floor(playtime / 60)}m {playtime % 60}s
-                </span>
+                <span>{formatPlaytime()}</span>
               </Button>
+
+              {/* Status indicator */}
+              {isRunning && (
+                <Button variant='outline' className='border-blue-500'>
+                  <div className='flex items-center gap-2'>
+                    <div className='w-2 h-2 bg-blue-500 rounded-full animate-pulse'></div>
+                    {isMonitoring ? "Monitoring" : "Tracking"}
+                  </div>
+                </Button>
+              )}
               <Button variant='outline'>
                 <div className='flex items-center gap-2'>
                   <Star />

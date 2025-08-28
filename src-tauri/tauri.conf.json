@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "unlockit",
+  "productName": "UnlockIt",
   "version": "0.1.0",
   "identifier": "com.mohamed.unlockit",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "unlockit",
+        "title": "UnlockIt - Ultimate Achievement Tracker",
         "width": 1200,
         "height": 720,
         "closable": true,
@@ -43,8 +43,14 @@
         "installerIcon": "icons/icon.ico",
         "installMode": "perMachine",
         "languages": ["English"],
-        "template": "installer.nsi"
+        "installerHooks": "installer-hooks.nsi",
+        "displayLanguageSelector": false
       }
-    }
+    },
+    "publisher": "Mohamed Echbiy",
+    "copyright": "Copyright (c) Mohamed Echbiy",
+    "category": "Game",
+    "shortDescription": "Ultimate Achievement Tracker for Gamers",
+    "longDescription": "UnlockIt is the ultimate achievement tracking application for gamers. Track your progress across all your favorite games, unlock achievements, monitor playtime, and enhance your gaming experience with detailed statistics and insights."
   }
 }
