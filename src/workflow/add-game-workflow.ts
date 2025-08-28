@@ -44,15 +44,17 @@ const useAddGameWorkflow = () => {
       multiple: false,
       directory: false,
     });
+    console.log({ gamePath });
     if (!gamePath) {
       return false;
     }
 
     let { name, dir } = getGameNameAndDir(gamePath);
+    console.log({ name, dir });
     const appId =
       (await extractAppIdFromSteamEmuIni(dir)) ||
       (await extractRealAppIdFromOnlineFixIni(dir));
-
+    console.log({ appId });
     let metadata: SteamMetadataMinimal | null = null;
     if (appId) {
       setGameLoadingName(name);
@@ -107,6 +109,7 @@ const useAddGameWorkflow = () => {
         const achievements = await getGameSteamAchievementSchema(
           String(steam_appid)
         );
+        console.log({ name });
         await executeHowLongToBeatWorkflow(String(steam_appid), String(name));
         setAddGameLoadingProgress(89);
         if (achievements && data) {

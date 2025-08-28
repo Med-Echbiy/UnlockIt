@@ -115,7 +115,6 @@ export function GameCard({ game, index }: GameCardProps) {
   const tier = getAchievementTier(unlocked, total);
   const tierStyles = getTierStyles(tier);
   const TierIcon = tierStyles.icon;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -247,7 +246,11 @@ export function GameCard({ game, index }: GameCardProps) {
             </div>
             <Button
               className='flex items-start gap-2  bg-red-600 text-white hover:bg-red-700'
-              onClick={() => removeGameFromStore(String(game.appId))}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                removeGameFromStore(String(game.appId));
+              }}
             >
               <Trash className='w-4 h-4 mt-0.5 flex-shrink-0' />
               <span className='text-xs font-mono break-all leading-relaxed'>

@@ -36,7 +36,12 @@ const useInitialWorkflow = () => {
       setAchievements(achievements_store);
       setHowLongToBeatStore(howLongToBeat_store);
       setTrackedAchievementsFilesState(tracked_files_store);
-
+      // reset
+      // await store.clear();
+      // await achievements_store.clear();
+      // await howLongToBeat_store.clear();
+      // await tracked_files_store.clear();
+      //-------------
       const [data, data_achievement, data_howLongToBeat] = await Promise.all([
         store.entries(),
         achievements_store.entries(),
