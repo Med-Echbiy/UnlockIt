@@ -17,6 +17,7 @@ interface ProfileStore {
   updateAvatar: (avatar: string) => void;
   updateName: (name: string) => void;
   updateNotificationSound: (sound: string) => void;
+  getProfile: () => ProfileData;
 }
 
 const defaultProfile: ProfileData = {
@@ -79,6 +80,9 @@ const useProfileStore = create<ProfileStore>((set, get) => ({
     const { setProfile, saveProfile } = get();
     setProfile({ notificationSound });
     saveProfile();
+  },
+  getProfile: () => {
+    return get().profile;
   },
 }));
 

@@ -25,7 +25,7 @@ function SettingsDialog() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const { open, toggle } = settingsModalStore();
   const {
-    profile,
+    getProfile,
     updateName,
     updateAvatar,
     updateNotificationSound,
@@ -49,7 +49,9 @@ function SettingsDialog() {
 
   useEffect(() => {
     (async () => {
-      setProfilePicture(await invoke("load_image", { path: profile.avatar }));
+      setProfilePicture(
+        await invoke("load_image", { path: getProfile().avatar })
+      );
     })();
     const storedApiKey = window.localStorage.getItem("steamApiKey");
     if (storedApiKey) {
@@ -59,8 +61,8 @@ function SettingsDialog() {
   }, [loadProfile]);
 
   useEffect(() => {
-    setTempName(profile.name);
-  }, [profile.name]);
+    setTempName(getProfile().name);
+  }, [getProfile().name]);
 
   const handleAvatarUpload = async () => {
     try {
@@ -183,7 +185,9 @@ function SettingsDialog() {
                     />
                     <Button
                       onClick={handleNameSave}
-                      disabled={!tempName.trim() || tempName === profile.name}
+                      disabled={
+                        !tempName.trim() || tempName === getProfile().name
+                      }
                     >
                       Save
                     </Button>
@@ -195,7 +199,7 @@ function SettingsDialog() {
                 <Label>Profile Avatar</Label>
                 <div className='flex items-center gap-4'>
                   <div className='w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center overflow-hidden'>
-                    {profile.avatar ? (
+                    {getProfile().avatar ? (
                       <img
                         src={profilePicture}
                         alt='Profile'
@@ -234,7 +238,7 @@ function SettingsDialog() {
                   <div
                     key={sound.value}
                     className={`p-4 rounded-lg border cursor-pointer transition-all hover:border-primary/50 ${
-                      profile.notificationSound === sound.value
+                      getProfile().notificationSound === sound.value
                         ? "border-primary bg-primary/5"
                         : "border-border"
                     }`}
