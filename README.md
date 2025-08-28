@@ -152,7 +152,7 @@ UnlockIt/
 - Customize notification appearance
 - Set up achievement tracking preferences
 
-## 🤝 Contributing
+<!-- ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
 
@@ -276,4 +276,4 @@ Your support helps us:
   <strong>🎮 Happy Gaming! 🏆</strong>
   <br>
   <em>Made with ❤️ by Mohamed Echbiy</em>
-</div>
+</div> -->
