@@ -174,7 +174,7 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
           await startMonitoring();
         }
       }
-    }, 10000); // Check every 10 seconds
+    }, 30000); // Check every 30 seconds (reduced frequency)
   };
 
   // Start periodic checks when component mounts
