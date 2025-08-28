@@ -9,9 +9,7 @@ import {
 import { ReactNode } from "react";
 import { Compass, HomeIcon, Settings, Timer, Unlock } from "lucide-react";
 import GroupBySideBar from "../shared/groupBy-sidebar";
-// note you need to get last played based on last played store in local storage or files better  files for fimliarity with rust filesystem
 export function Sidebar({ children }: { children: ReactNode }) {
-  //
   return (
     <section className=''>
       <SidebarProvider>

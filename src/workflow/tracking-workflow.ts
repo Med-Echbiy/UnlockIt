@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import useMyGamesStore from "@/store/my-games-store";
 import useParsingWorkflow from "./parser/parse-workflow";
 import { toast } from "sonner";
+import useProfileStore from "@/store/profile-store";
 
 const useTrackingWorkflow = () => {
   const { trackAchievementsFiles, getTrackedAchievementsFiles } =
@@ -14,7 +15,7 @@ const useTrackingWorkflow = () => {
     exePath: "",
     appid: 0,
   });
-
+  const { profile } = useProfileStore();
   // Use refs to prevent multiple registrations and track previous state properly
   const isWatcherSetup = useRef(false);
   const currentPaths = useRef<string>("");
@@ -210,7 +211,9 @@ const useTrackingWorkflow = () => {
 
                         try {
                           // Play custom sound from public directory
-                          const audio = new Audio("/xbox-360.mp3");
+                          const audio = new Audio(
+                            profile.notificationSound || ""
+                          ); // Ensure valid path
                           audio.volume = 1; // Adjust volume as needed
                           audio
                             .play()

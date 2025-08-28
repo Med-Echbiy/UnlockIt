@@ -130,7 +130,7 @@ function Games() {
   };
 
   return (
-    <main className='w-full h-screen relative overflow-hidden p-4'>
+    <main className='w-full min-h-screen relative overflow-hidden p-4'>
       <div className='max-w-full mx-auto relative z-10'>
         <motion.div
           initial={{ opacity: 0, y: -20 }}
