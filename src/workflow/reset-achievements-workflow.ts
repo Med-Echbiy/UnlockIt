@@ -9,10 +9,7 @@ const useResetAchievementsWorkflow = (appid: number) => {
     resetAchievementsBasedOnAppid,
   } = useAchievementsStore();
   const { achievementsStore } = useInitialWorkflow();
-  // Your implementation here
   const resetAchievements = async () => {
-    // Call your API or perform the reset logic here
-
     const filteredFiles = trackAchievementsFiles.filter(
       (file) => Number(file.appid) === Number(appid)
     );
@@ -27,8 +24,6 @@ const useResetAchievementsWorkflow = (appid: number) => {
     }
     const BulkUpdate = resetAchievementsBasedOnAppid(appid);
     setTrackedAchievementsFiles(filesNotEffected);
-
-    // Find the updated achievement data more safely
     const updatedAchievementData = BulkUpdate.find(
       (e) => Number(e.gameId) === Number(appid)
     );
@@ -39,8 +34,6 @@ const useResetAchievementsWorkflow = (appid: number) => {
       );
       await achievementsStore.save();
     }
-    // ...existing code...
-    // reset achievements store
   };
 
   return {

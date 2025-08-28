@@ -9,13 +9,11 @@ const useOnlineFixParserWorkflow = ({
   exePath: string;
 }) => {
   const { saveToTrackList } = sharedParsingWorkflow();
-  // Your implementation here
   async function parseOnlineFixFolder(
     app_id: number = appid,
     _exe_path: string = exePath
   ) {
     try {
-      // Create a dynamic getTheOnlineFixFolder function with the provided app_id
       const getTheOnlineFixFolderWithId = async () => {
         try {
           const publicPath = await path.publicDir();
@@ -34,7 +32,6 @@ const useOnlineFixParserWorkflow = ({
       const onlineFixFolder = await getTheOnlineFixFolderWithId();
 
       if (!onlineFixFolder) return false;
-      // get the ini file
       const filePath = await path.join(
         onlineFixFolder,
         "Stats",
@@ -52,9 +49,7 @@ const useOnlineFixParserWorkflow = ({
     }
   }
   function parsingLogic(content: string) {
-    // Only match achievement sections in OnlineFix format: [NAME] achieved=true timestamp=number
     const achievementEntries: { name: string; achievedAt: number }[] = [];
-    // Match [SectionName] ... achieved=true ... timestamp=number
     const entryRegex =
       /\[([^\]\n]+)\][^\[]*?achieved\s*=\s*true[^\[]*?timestamp\s*=\s*(\d+)/gi;
     let match;

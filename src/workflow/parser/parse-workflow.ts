@@ -27,11 +27,6 @@ const useParsingWorkflow = ({
     app_id: number = appid,
     exe_path: string = exePath
   ) {
-    // Why no early return?
-    // If multiple sources provide achievements, combine their results before updating.
-    // This ensures no duplicate achievements and all sources are considered.
-    // Example: You could collect all achievements from each parser, merge them and keep the tracker on the latest update.
-    // Sorry english is not my first language :(
     console.log(`Parsing achievements...${app_id}, ${exe_path}`);
     const Type_ALI213 = await parseBinFileForAchievements(app_id, exe_path);
     if (Type_ALI213 && Type_ALI213.length > 0) {
@@ -54,7 +49,6 @@ const useParsingWorkflow = ({
     app_id: string,
     { name, achievedAt }: { name: string; achievedAt: number }
   ) {
-    // Always read from the Tauri store (persistent store) as source of truth
     const achievementsStore = await load("achievements.json");
     const currentAchievementData: SteamSchemaResponse | null | undefined =
       await achievementsStore.get(`achievements_${app_id}`);
@@ -63,8 +57,6 @@ const useParsingWorkflow = ({
       console.error("No achievement data found in Tauri store");
       return false;
     }
-
-    // Use the current Tauri store data as the source of truth
     const achievements: Achievement[] =
       currentAchievementData.game?.availableGameStats?.achievements || [];
     const updateAchievements = achievements.map((ach) =>
@@ -77,8 +69,6 @@ const useParsingWorkflow = ({
           }
         : ach
     );
-
-    // Update the achievement data
     const updated: SteamSchemaResponse = {
       ...currentAchievementData,
       game: {
@@ -90,12 +80,8 @@ const useParsingWorkflow = ({
       },
       gameId: Number(app_id),
     };
-
-    // Write back to Tauri store
     await achievementsStore.set(`achievements_${app_id}`, updated);
     await achievementsStore.save();
-
-    // Also write to file to keep it in sync
     const dir = await appLocalDataDir();
     const filePath = await join(
       dir,
@@ -119,8 +105,6 @@ const useParsingWorkflow = ({
         achievedAt: achievement.achievedAt,
       });
       if (data) {
-        // Update Zustand store to trigger React re-render
-        // The Tauri store is already updated in unlockAchievement function
         updateAchievement(appid, { ...data });
       }
     }

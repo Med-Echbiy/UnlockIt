@@ -7,10 +7,7 @@ const useRemoveGameWorkflow = () => {
 
   const removeGameFromStore = async (appId: string) => {
     try {
-      // Remove from Zustand store
       removeGame(appId);
-
-      // Remove from Tauri store
       const store = await load("my-games.json");
       await store.delete(`game_${appId}`);
       await store.save();

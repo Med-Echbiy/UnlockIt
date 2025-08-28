@@ -10,15 +10,12 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     if (isRunning) return;
 
     try {
-      // Start tracking via Rust command
       await invoke("start_playtime_tracking", {
         appid,
         exePath,
       });
 
       setIsRunning(true);
-
-      // Update UI every second
       intervalRef.current = window.setInterval(async () => {
         try {
           const currentPlaytime = await invoke<number>("get_current_playtime", {
@@ -49,8 +46,6 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
 
     setIsRunning(false);
   };
-
-  // Load initial playtime when component mounts
   useEffect(() => {
     const loadInitialPlaytime = async () => {
       try {
@@ -65,8 +60,6 @@ const useRustTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
 
     loadInitialPlaytime();
   }, [appid]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (intervalRef.current !== null) {

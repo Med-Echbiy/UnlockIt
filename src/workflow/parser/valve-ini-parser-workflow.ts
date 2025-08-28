@@ -11,8 +11,6 @@ const useValveIniParser = ({
 }) => {
   const { checkExePath, saveToTrackList } = sharedParsingWorkflow();
 
-  // Implementation of the Valve INI parser workflow
-
   const fileRegex = /achievements\.bin$/i;
 
   const parseBinFileForAchievements = async (
@@ -20,7 +18,6 @@ const useValveIniParser = ({
     exe_path: string = exePath
   ) => {
     if (await checkExePath(exe_path)) {
-      // Create a temporary findAchievementsBin function with the provided exe_path
       const findAchievementsBinWithPath = async (searchPath: string) => {
         async function searchDir(dir: string): Promise<string | null> {
           if (dir.endsWith(".exe")) {
@@ -50,9 +47,7 @@ const useValveIniParser = ({
 
       const achievementsBinPath = await findAchievementsBinWithPath(exe_path);
       if (achievementsBinPath) {
-        // Read the file as text
         const content = await readTextFile(achievementsBinPath);
-        // Parse the content
         const achievementEntries: { name: string; achievedAt: number }[] = [];
         const entryRegex =
           /\[(.+?)\][^\[]*?HaveAchieved=1[^\[]*?HaveAchievedTime=(\d+)/g;

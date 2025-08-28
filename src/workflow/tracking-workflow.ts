@@ -16,7 +16,6 @@ const useTrackingWorkflow = () => {
     appid: 0,
   });
   const { profile } = useProfileStore();
-  // Use refs to prevent multiple registrations and track previous state properly
   const isWatcherSetup = useRef(false);
   const currentPaths = useRef<string>("");
   const eventListenerSetup = useRef(false);
@@ -30,8 +29,6 @@ const useTrackingWorkflow = () => {
     console.log("Current paths string:", pathsString);
     console.log("Previous paths string:", currentPaths.current);
     console.log("Is watcher already setup:", isWatcherSetup.current);
-
-    // Only setup watcher if paths changed or watcher isn't setup
     if (
       getPaths.length > 0 &&
       (pathsString !== currentPaths.current || !isWatcherSetup.current)
@@ -58,10 +55,7 @@ const useTrackingWorkflow = () => {
       console.log("Watcher already setup for these paths, skipping...");
     }
   }, [trackAchievementsFiles.length]);
-
-  // Separate effect for setting up the event listener (only once)
   useEffect(() => {
-    // Prevent multiple event listener setups
     if (eventListenerSetup.current) {
       console.log("Event listener already setup, skipping...");
       return;
@@ -74,8 +68,6 @@ const useTrackingWorkflow = () => {
       console.log("=== FILE CHANGE EVENT RECEIVED ===");
       console.log("Full event object:", event);
       console.log("Event payload:", event.payload);
-
-      // Type the event payload
       const payload = event.payload as {
         path: string;
         kind: string;
@@ -92,21 +84,15 @@ const useTrackingWorkflow = () => {
       if (game) {
         const { appId, exePath } = game;
         console.log("Game details - appId:", appId, "exePath:", exePath);
-
-        // Only process if there are actually added lines to avoid empty notifications
         if (payload.added_lines && payload.added_lines.length > 0) {
           console.log("Processing achievement changes for game:", game.name);
           console.log("Added lines:", payload.added_lines);
-
-          // Extract achievement names from added lines using regex pattern [achievement name]
           const achievementNames = new Set<string>();
 
           payload.added_lines.forEach((line) => {
             console.log("Processing line:", line);
             console.log("Line type:", typeof line);
             console.log("Line length:", line.length);
-
-            // Reset regex for each line to avoid issues with global flag
             const achievementRegex = /\[(.+?)\]/g;
             let match;
 
@@ -121,8 +107,6 @@ const useTrackingWorkflow = () => {
                 console.log("Added achievement to set:", achievementName);
               }
             }
-
-            // Also try a simple test
             if (line.includes("[") && line.includes("]")) {
               console.log("Line contains brackets - manual check passed");
               const manualMatch = line.match(/\[(.+?)\]/);
@@ -142,13 +126,9 @@ const useTrackingWorkflow = () => {
           );
 
           if (achievementNames.size > 0) {
-            // Parse achievements to get the latest data
             parseAchievements(appId, exePath)
               .then(async () => {
-                // Wait a bit for the store to update
                 await new Promise((resolve) => setTimeout(resolve, 100));
-
-                // Get the current achievements from the store after parsing
                 const { achievements: updatedAchievements } =
                   useAchievementsStore.getState();
                 const currentAchievements = updatedAchievements.find(
@@ -160,11 +140,8 @@ const useTrackingWorkflow = () => {
                 ) {
                   const allAchievements =
                     currentAchievements.game.availableGameStats.achievements;
-
-                  // Find the achievements that match the names from added lines
                   const unlockedAchievements = Array.from(achievementNames)
                     .map((achievementName) => {
-                      // Try to find by name or displayName
                       return allAchievements.find(
                         (ach) =>
                           ach.name === achievementName ||
@@ -192,16 +169,6 @@ const useTrackingWorkflow = () => {
                         },
                       }
                     );
-
-                    // Check notification permission once for all notifications
-                    // let permissionGranted = await isPermissionGranted();
-                    // if (!permissionGranted) {
-                    //   const permission = await requestPermission();
-                    //   permissionGranted = permission === "granted";
-                    // }
-
-                    // if (permissionGranted) {
-                    // Show notification for each unlocked achievement
                     for (const achievement of unlockedAchievements) {
                       if (achievement) {
                         console.log(
@@ -210,7 +177,6 @@ const useTrackingWorkflow = () => {
                         );
 
                         try {
-                          // Play custom sound from public directory
                           const audio = new Audio(
                             profile.notificationSound || ""
                           ); // Ensure valid path
@@ -220,7 +186,6 @@ const useTrackingWorkflow = () => {
                             .catch((err) =>
                               console.warn("Failed to play custom sound:", err)
                             );
-                          // Use Xbox-style toast_notification invoke
                           await invoke("toast_notification", {
                             iconPath: achievement.icon || "",
                             gameName: game.name,
@@ -236,11 +201,6 @@ const useTrackingWorkflow = () => {
                         }
                       }
                     }
-                    // } else {
-                    //   console.warn(
-                    //     "Notification permission not granted - cannot show achievement notifications"
-                    //   );
-                    // }
                   } else {
                     console.log("No matching achievements found in game data");
                   }
@@ -268,8 +228,6 @@ const useTrackingWorkflow = () => {
       unlisten.then((fn) => fn());
     };
   }, []); // Empty dependency array - setup listener only once
-
-  // Cleanup effect when component unmounts
   useEffect(() => {
     return () => {
       console.log("TrackingWorkflow component unmounting - cleaning up");
@@ -287,8 +245,6 @@ const useTrackingWorkflow = () => {
       trackAchievementsFiles,
       getTrackedAchievementsFiles()
     );
-
-    // Show each file path comparison
     getTrackedAchievementsFiles().forEach((item, index) => {
       console.log(`[${index}] Stored path: "${item.filePath}"`);
       console.log(`[${index}] Input path:  "${path}"`);
