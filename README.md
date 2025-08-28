@@ -146,11 +146,11 @@ UnlockIt/
 3. Enter your Steam API key
 4. Start adding games to your library
 
-### Notification Settings
+<!-- ### Notification Settings
 
 - Configure achievement notification sounds
 - Customize notification appearance
-- Set up achievement tracking preferences
+- Set up achievement tracking preferences -->
 
 <!-- ## 🤝 Contributing
 
