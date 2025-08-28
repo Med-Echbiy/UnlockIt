@@ -1,0 +1,79 @@
+name: 🛠️ Auto Update Dependencies
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: 📦 Update Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ⚡ Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: 🦀 Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: 📥 Install frontend dependencies
+        run: pnpm install
+
+      - name: 🔄 Update frontend dependencies
+        run: pnpm update
+
+      - name: 🔄 Update Rust dependencies
+        run: |
+          cd src-tauri
+          cargo update
+
+      - name: 🧪 Test after updates
+        run: |
+          pnpm build
+          cd src-tauri
+          cargo test --verbose
+
+      - name: 📝 Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "📦 chore: update dependencies"
+          title: "📦 Auto-update dependencies"
+          body: |
+            🤖 **Automated dependency update**
+
+            This PR was automatically created to update project dependencies.
+
+            ## 📦 Changes
+            - Updated frontend dependencies via `pnpm update`
+            - Updated Rust dependencies via `cargo update`
+
+            ## ✅ Tests
+            - [x] Frontend builds successfully
+            - [x] Backend tests pass
+
+            Please review the changes and merge if everything looks good!
+
+            ---
+            *This PR was created automatically by GitHub Actions*
+          branch: chore/auto-update-dependencies
+          base: develop
+          labels: |
+            dependencies
+            automated
+            chore

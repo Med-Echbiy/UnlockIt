@@ -245,7 +245,10 @@ export function GameCard({ game, index }: GameCardProps) {
                 {game.exePath}
               </span>
             </div>
-            <Button className='flex items-start gap-2  bg-red-600 text-white hover:bg-red-700'>
+            <Button
+              className='flex items-start gap-2  bg-red-600 text-white hover:bg-red-700'
+              onClick={() => removeGameFromStore(String(game.appId))}
+            >
               <Trash className='w-4 h-4 mt-0.5 flex-shrink-0' />
               <span className='text-xs font-mono break-all leading-relaxed'>
                 Remove Game
