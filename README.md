@@ -146,6 +146,87 @@ UnlockIt/
 3. Enter your Steam API key
 4. Start adding games to your library
 
+## 📖 Guide
+
+### Supported Emulators
+
+UnlockIt currently supports the following Steam emulators for achievement tracking:
+
+- **ALI213** - Full support for achievement tracking and playtime monitoring
+- **RUNE** - Compatible with most games and features
+- **Codex** - Works with achievement unlocking and progress tracking
+- **Online Fix** - Supports online features and achievement synchronization
+
+### Adding Games with Emulators
+
+#### Method 1: Direct Game Addition
+
+1. Launch UnlockIt
+2. Click "Add Game" or use the "+" button
+3. Navigate to your game's installation folder
+4. Select the game executable
+5. UnlockIt will automatically detect supported emulators
+
+#### Method 2: Emulator Compatibility Fix
+
+If your game doesn't appear or isn't working properly with UnlockIt:
+
+**Step 1: Backup Original Files**
+
+1. Navigate to your game's installation directory
+2. Locate the `steam_api.dll` file
+3. Rename it to `steam_api.dll.bak` (this creates a backup)
+
+**Step 2: Install ALI213 Emulator**
+
+1. Copy the ALI213 SteamEmu files from the `ALI213 SteamEmu` folder from the repository:
+   - `steam_api.dll`
+   - `steam_api64.dll`
+   - `valve.ini`
+2. Paste these files into your game's installation directory in where you found the original `steam_api.dll`.
+
+**Step 3: Test Game Launch**
+
+1. Try launching your game
+2. If the game launches successfully, you can now add it to UnlockIt
+3. UnlockIt should now be able to track achievements and playtime
+
+**Step 4: Rollback if Needed**
+If the game fails to launch after applying the ALI213 emulator:
+
+1. Delete the recently pasted ALI213 files:
+   - `steam_api.dll`
+   - `steam_api64.dll`
+   - `valve.ini`
+2. Rename `steam_api.dll.bak` back to `steam_api.dll`
+3. This means the game is not currently supported 😢
+
+### Troubleshooting
+
+#### Game Not Detected
+
+- Ensure you're pointing to the correct game executable
+- Check that the emulator files are in the same directory as the game
+- Verify that the `valve.ini` file has the correct game configuration AppID
+
+#### Achievements Not Tracking
+
+- Make sure UnlockIt is running before launching the game
+- Check that the game is added to your UnlockIt library
+
+#### Game Won't Launch
+
+- Follow the rollback steps above to restore original files
+- Try running the game as administrator
+- Check Windows Defender or antivirus settings (emulator files might be flagged)
+
+### Best Practices
+
+1. **Always backup original files** before applying emulator fixes
+2. **Test one game at a time** when applying emulator changes
+3. **Keep UnlockIt running** while playing games for proper tracking
+4. **Check compatibility** before purchasing 😂 or installing new games
+
 <!-- ### Notification Settings
 
 - Configure achievement notification sounds
