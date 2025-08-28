@@ -15,7 +15,7 @@ const useTrackingWorkflow = () => {
     exePath: "",
     appid: 0,
   });
-  const { profile } = useProfileStore();
+  const { getProfile } = useProfileStore();
   const isWatcherSetup = useRef(false);
   const currentPaths = useRef<string>("");
   const eventListenerSetup = useRef(false);
@@ -178,7 +178,7 @@ const useTrackingWorkflow = () => {
 
                         try {
                           const audio = new Audio(
-                            profile.notificationSound || ""
+                            getProfile().notificationSound
                           ); // Ensure valid path
                           audio.volume = 1; // Adjust volume as needed
                           audio
