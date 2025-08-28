@@ -8,10 +8,20 @@ import type { GameStoreData } from "@/types/Game";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Folder, Users, Trophy, Award, Medal } from "lucide-react";
+import {
+  Calendar,
+  Folder,
+  Users,
+  Trophy,
+  Award,
+  Medal,
+  Trash,
+} from "lucide-react";
 import useAchievementsStore from "@/store/achievements-store";
 import { Progress } from "@/components/ui/progress";
 import { invoke } from "@tauri-apps/api/core";
+import useRemoveGameWorkflow from "@/workflow/remove-game-workflow";
+import { Button } from "@/components/ui/button";
 
 interface GameCardProps {
   game: GameStoreData;
@@ -79,7 +89,7 @@ const getTierStyles = (tier: string) => {
 
 export function GameCard({ game, index }: GameCardProps) {
   const [img, setImg] = useState<string | null>(null);
-
+  const { removeGameFromStore } = useRemoveGameWorkflow();
   useEffect(() => {
     (async () => {
       const src: string = await invoke("load_image", {
@@ -235,6 +245,12 @@ export function GameCard({ game, index }: GameCardProps) {
                 {game.exePath}
               </span>
             </div>
+            <Button className='flex items-start gap-2  bg-red-600 text-white hover:bg-red-700'>
+              <Trash className='w-4 h-4 mt-0.5 flex-shrink-0' />
+              <span className='text-xs font-mono break-all leading-relaxed'>
+                Remove Game
+              </span>
+            </Button>
           </CardContent>
 
           <motion.div

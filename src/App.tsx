@@ -6,6 +6,7 @@ import AnimatedContent from "./animation-ui/AnimatedContent";
 import DockContainer from "./components/main/shared/DockContainer";
 import Games from "./components/main/Game/Games";
 import settingsModalStore from "./store/settings-modal-state";
+import useProfileStore from "./store/profile-store";
 import SettingsDialog from "./components/main/Settings/Settings";
 import { Toaster } from "./components/ui/sonner";
 import useInitialWorkflow from "./workflow/initial_workflow";
@@ -14,11 +15,20 @@ import { GamingLoader } from "./components/main/shared/add-game-loading";
 import ConfirmationDialog from "./components/main/shared/confirmation-dialog";
 import CheckConnection from "./components/main/shared/check-connection";
 import useTrackingWorkflow from "./workflow/tracking-workflow";
+import { useEffect } from "react";
 
 function App() {
   const { open } = settingsModalStore();
+  const { loadProfile } = useProfileStore();
+
   useInitialWorkflow();
   useTrackingWorkflow();
+
+  // Initialize profile on app start
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
   return (
     <Router>
       <div className='flex flex-col min-h-screen'>
