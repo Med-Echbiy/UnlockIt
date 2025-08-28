@@ -523,19 +523,24 @@ fn try_spawn_with_elevation(exe_path: &str) -> Result<std::process::Child, Strin
     }
 }
 
-#[cfg(windows)]
 fn is_process_running(process_name: &str) -> bool {
-    let output = std::process::Command::new("tasklist")
-        .args(["/FI", &format!("IMAGENAME eq {}", process_name)])
-        .output();
-
-    match output {
-        Ok(output) => {
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            output_str.contains(process_name)
+    use sysinfo::{System, ProcessesToUpdate};
+    
+    let mut sys = System::new_all();
+    sys.refresh_processes(ProcessesToUpdate::All, true);
+    
+    let target_name = process_name.trim_end_matches(".exe").to_lowercase();
+    
+    for (_, process) in sys.processes() {
+        let proc_name = process.name().to_string_lossy().to_lowercase();
+        let proc_name_no_ext = proc_name.trim_end_matches(".exe");
+        
+        if proc_name == target_name || proc_name_no_ext == target_name {
+            return true;
         }
-        Err(_) => false,
     }
+    
+    false
 }
 
 #[cfg(not(windows))]
