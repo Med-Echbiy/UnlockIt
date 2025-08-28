@@ -45,7 +45,7 @@
 - **Dark/Light Themes**: Support for both dark and light theme preferences
 - **Responsive Design**: Perfect experience across different screen sizes
 
-## 🚀 Getting Started
+<!-- ## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -135,7 +135,7 @@ UnlockIt/
 │   ├── icons/                   # Application icons
 │   └── capabilities/            # Tauri capabilities
 └── public/                      # Static assets
-```
+``` -->
 
 ## ⚙️ Configuration
 
