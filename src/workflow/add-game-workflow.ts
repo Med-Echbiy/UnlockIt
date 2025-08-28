@@ -12,6 +12,8 @@ import { SteamSchemaResponse } from "@/types/achievements";
 import useAchievementsStore from "@/store/achievements-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
 import useUIStateStore from "@/store/ui-state-store";
+import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
+import { s } from "node_modules/framer-motion/dist/types.d-Cjd591yU";
 
 const useAddGameWorkflow = () => {
   const { setAddGameLoading, setGameLoadingName, setAddGameLoadingProgress } =
@@ -22,6 +24,7 @@ const useAddGameWorkflow = () => {
 
   const { storeJson } = useStoreAchievements();
   const { getSteamApiKey } = useRequiredDataStore();
+  const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
   async function getGamePath() {
     setAddGameLoadingProgress(5);
     if (!getSteamApiKey()) {
@@ -111,28 +114,7 @@ const useAddGameWorkflow = () => {
         const achievements = await getGameSteamAchievementSchema(
           String(steam_appid)
         );
-
-        try {
-          const howLongToBeatGames = await invoke("get_how_long_to_beat", {
-            gameName: name,
-          });
-
-          // Get the first game result if available;
-          console.log("howLongToBeat", { howLongToBeatGames });
-
-          // Ensure howLongToBeatGames is an array before trying to access it
-          if (
-            Array.isArray(howLongToBeatGames) &&
-            howLongToBeatGames.length > 0
-          ) {
-            const howLongToBeatData = howLongToBeatGames[0];
-            console.log("First HLTB game:", howLongToBeatData);
-          } else {
-            console.log("No HLTB data found or invalid response");
-          }
-        } catch (error) {
-          console.error("Error fetching HowLongToBeat data:", error);
-        }
+        await executeHowLongToBeatWorkflow(String(steam_appid), String(name));
         setAddGameLoadingProgress(89);
         if (achievements && data) {
           addGame(data);

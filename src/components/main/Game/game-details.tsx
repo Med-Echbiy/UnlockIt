@@ -9,6 +9,8 @@ import {
 import useAchievementsStore from "@/store/achievements-store";
 import useMyGamesStore from "@/store/my-games-store";
 import useRustTrackPlaytimeWorkflow from "@/workflow/rust-track-playtime-workflow";
+import useHowLongToBeatWorkflow from "@/workflow/how-long-to-beat-workflow";
+import { HowLongToBeatGame } from "@/types/howLongToBeat";
 import { invoke } from "@tauri-apps/api/core";
 import {
   CheckCircle,
@@ -29,10 +31,16 @@ import {
   CheckCircle2,
   GamepadIcon,
   Medal,
+  Zap,
+  Target,
+  Search,
+  ExternalLink,
+  Users,
+  Gamepad2,
+  Calendar,
   RotateCcw,
   Gem,
   Award,
-  Crown,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -48,6 +56,7 @@ import useResetAchievementsWorkflow from "@/workflow/reset-achievements-workflow
 import useUIStateStore from "@/store/ui-state-store";
 import useUpdateGameWorkflow from "@/workflow/update-game-workflow";
 import { Input } from "@/components/ui/input";
+import { formatPlayTime } from "@/lib/howLongToBeatHelper";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +71,8 @@ function GameDetails() {
       {game && (
         <Card className='grid grid-cols-1 p-3 gap-5 bg-transparent border-none  shadow-none'>
           <GameDetailsHeader id={id!} />
+          <Separator />
+          <HowLongToBeatHeader game={game} />
           <Separator />
           <GameDetailsAchievements game={game} />
         </Card>
@@ -692,5 +703,245 @@ function GameRatingInput({
       </span>
       <Edit className='w-3 h-3 opacity-50' />
     </Button>
+  );
+}
+
+function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
+  const { executeHowLongToBeatWorkflow, getSessionData, clearStoredGameData } =
+    useHowLongToBeatWorkflow();
+
+  const [howLongToBeatData, setHowLongToBeatData] =
+    useState<HowLongToBeatGame | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Check for existing data on component mount
+  useEffect(() => {
+    const existingData = getSessionData(String(game.appId));
+    if (existingData) {
+      setHowLongToBeatData(existingData);
+    }
+  }, [game.appId, getSessionData]);
+
+  const handleFetchHowLongToBeat = async () => {
+    setIsLoading(true);
+    try {
+      const selectedGame = await executeHowLongToBeatWorkflow(
+        String(game.appId),
+        game.name
+      );
+      if (selectedGame) {
+        setHowLongToBeatData(selectedGame);
+      }
+    } catch (error) {
+      console.error("Error fetching HowLongToBeat data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClearData = async () => {
+    await clearStoredGameData(String(game.appId));
+    setHowLongToBeatData(null);
+  };
+
+  // const formatTime = (minutes: number): string => {
+  //   if (minutes === 0) return "N/A";
+  //   const hours = Math.floor(minutes / 60 / 60);
+  //   const mins = minutes % 60;
+  //   if (hours === 0) return `${mins}m`;
+  //   if (mins === 0) return `${hours}h`;
+  //   return `${hours}h ${mins}m`;
+  // };
+
+  const getCompletionData = () => [
+    {
+      label: "Main Story",
+      time: howLongToBeatData?.comp_main || 0,
+      count: howLongToBeatData?.comp_main_count || 0,
+      icon: Clock,
+      color: "text-blue-500",
+      bgColor: "bg-blue-50 dark:bg-blue-950/30",
+    },
+    {
+      label: "Main + Extra",
+      time: howLongToBeatData?.comp_plus || 0,
+      count: howLongToBeatData?.comp_plus_count || 0,
+      icon: Zap,
+      color: "text-amber-500",
+      bgColor: "bg-amber-50 dark:bg-amber-950/30",
+    },
+    {
+      label: "Completionist",
+      time: howLongToBeatData?.comp_100 || 0,
+      count: howLongToBeatData?.comp_100_count || 0,
+      icon: Target,
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
+    },
+    {
+      label: "All Styles",
+      time: howLongToBeatData?.comp_all || 0,
+      count: howLongToBeatData?.comp_all_count || 0,
+      icon: Trophy,
+      color: "text-purple-500",
+      bgColor: "bg-purple-50 dark:bg-purple-950/30",
+    },
+  ];
+
+  if (!howLongToBeatData) {
+    return (
+      <Card className='w-full'>
+        <CardHeader>
+          <div className='flex items-center justify-between'>
+            <div className='flex items-center gap-3'>
+              <div className='w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center'>
+                <Clock className='w-5 h-5 text-white' />
+              </div>
+              <div>
+                <CardTitle className='text-xl'>HowLongToBeat</CardTitle>
+                <CardDescription>
+                  Get completion time estimates for this game
+                </CardDescription>
+              </div>
+            </div>
+            <Button
+              onClick={handleFetchHowLongToBeat}
+              disabled={isLoading}
+              className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
+            >
+              {isLoading ? (
+                <>
+                  <motion.div
+                    className='w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2'
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Search className='w-4 h-4 mr-2' />
+                  Search HowLongToBeat
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const completionData = getCompletionData();
+
+  return (
+    <Card className='w-full'>
+      <CardHeader>
+        <div className='flex items-center justify-between mb-4'>
+          <div className='flex items-center gap-3'>
+            <div className='w-10 h-10 bg-black rounded-lg flex items-center justify-center'>
+              <img src='/hltb_brand.webp' alt='' />
+            </div>
+            <div>
+              <CardTitle className='text-xl'>HowLongToBeat</CardTitle>
+              <CardDescription>
+                Completion times for {howLongToBeatData.game_name}
+              </CardDescription>
+            </div>
+          </div>
+          <div className='flex gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={handleFetchHowLongToBeat}
+              disabled={isLoading}
+            >
+              <RotateCcw className='w-4 h-4 mr-2' />
+              Update
+            </Button>
+            <Button variant='outline' size='sm' onClick={handleClearData}>
+              <X className='w-4 h-4 mr-2' />
+              Clear
+            </Button>
+            <Button variant='ghost' size='sm' asChild>
+              <a
+                href={`https://howlongtobeat.com/game/${howLongToBeatData.game_id}`}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='flex items-center gap-1'
+              >
+                <ExternalLink className='w-4 h-4' />
+                HLTB
+              </a>
+            </Button>
+          </div>
+        </div>
+
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+          {completionData.map((item, index) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`${item.bgColor} rounded-lg p-4 text-center border`}
+              >
+                <div
+                  className={`flex items-center justify-center gap-1 text-sm font-medium mb-2 ${item.color}`}
+                >
+                  <Icon className='w-4 h-4' />
+                  {item.label}
+                </div>
+                <div className='text-2xl font-bold text-foreground mb-1'>
+                  {formatPlayTime(item.time)}
+                </div>
+                {item.count > 0 && (
+                  <div className='flex items-center justify-center gap-1 text-xs text-muted-foreground'>
+                    <Users className='w-3 h-3' />
+                    {item.count.toLocaleString()} players
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {howLongToBeatData.profile_dev && (
+          <div className='flex flex-wrap items-center gap-2 mt-4 pt-4 border-t'>
+            <Badge variant='outline' className='text-xs'>
+              {howLongToBeatData.game_type}
+            </Badge>
+            <span className='text-sm text-muted-foreground'>
+              by {howLongToBeatData.profile_dev}
+            </span>
+            {howLongToBeatData.profile_platform && (
+              <Badge variant='secondary' className='text-xs'>
+                <Gamepad2 className='w-3 h-3 mr-1' />
+                {howLongToBeatData.profile_platform}
+              </Badge>
+            )}
+            {howLongToBeatData.release_world > 0 && (
+              <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                <Calendar className='w-3 h-3' />
+                <span>{howLongToBeatData.release_world}</span>
+              </div>
+            )}
+            {howLongToBeatData.review_score > 0 && (
+              <div className='flex items-center gap-1 text-sm'>
+                <Star className='w-3 h-3 fill-amber-400 text-amber-400' />
+                <span className='font-medium'>
+                  {howLongToBeatData.review_score}/10
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </CardHeader>
+    </Card>
   );
 }
