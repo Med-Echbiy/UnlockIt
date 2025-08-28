@@ -11,7 +11,6 @@ const useRemoveGameWorkflow = () => {
       const store = await load("my-games.json");
       await store.delete(`game_${appId}`);
       await store.save();
-
       toast.success("Game removed successfully", {
         description: "The game has been removed from your library.",
         style: {
