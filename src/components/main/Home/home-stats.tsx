@@ -15,7 +15,9 @@ export function HomeStats({ games }: HomeStatsProps) {
   const [profilePic, setProfilePic] = useState<string>("");
   useEffect(() => {
     (async () => {
-      setProfilePic(await invoke("load_image", { path: profile.avatar }));
+      if (profile.avatar) {
+        setProfilePic(await invoke("load_image", { path: profile.avatar }));
+      }
     })();
   }, [profile.avatar]);
   const stats = {
@@ -88,7 +90,7 @@ export function HomeStats({ games }: HomeStatsProps) {
       >
         <div className='flex items-center justify-center mb-4'>
           <div className='w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center overflow-hidden'>
-            {profile.avatar ? (
+            {profile.avatar && profilePic ? (
               <img
                 src={profilePic}
                 alt='Profile'
