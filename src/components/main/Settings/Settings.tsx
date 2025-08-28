@@ -37,8 +37,6 @@ function SettingsDialog() {
     { name: "Xbox 360", value: "xbox-360.mp3" },
     { name: "Xbox Rare Achievement", value: "xbox-rare.mp3" },
   ];
-
-  // Animate dialog entrance with GSAP
   useEffect(() => {
     if (open && dialogRef.current) {
       gsap.fromTo(
@@ -77,7 +75,6 @@ function SettingsDialog() {
       });
 
       if (selected) {
-        // For now, we'll store the file path. In a production app, you might want to convert to base64
         updateAvatar(selected);
         toast.success("Avatar updated successfully!", {
           style: {
@@ -114,8 +111,6 @@ function SettingsDialog() {
       });
     }
   };
-
-  // Subnautica Steam App ID
   const SUBNAUTICA_APP_ID = "264710";
 
   const fetchSubnauticaAchievements = async () => {
@@ -141,7 +136,6 @@ function SettingsDialog() {
           background: "rgb(21 128 61)",
         },
       });
-      // store user api key in Localstorage
       window.localStorage.setItem("steamApiKey", apiKey.trim());
     } catch (error) {
       toast.error(`Error: ${error}`, {

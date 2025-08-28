@@ -1,7 +1,5 @@
 import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
-
-// Helper to recursively find any ini file
 async function findIniRecursive(
   dir: string,
   iniName: string
@@ -27,7 +25,6 @@ async function findIniRecursive(
 }
 
 export async function extractAppIdFromSteamEmuIni(dir: string) {
-  // Try a list of ini files in order
   const iniFiles = ["steam_emu.ini", "valve.ini", "SteamConfig.ini"];
   for (const iniFile of iniFiles) {
     try {
@@ -35,11 +32,8 @@ export async function extractAppIdFromSteamEmuIni(dir: string) {
       const content = await readTextFile(directPath);
       const appIdMatch = content.match(/AppId\s*=\s*(\d+)/i);
       if (appIdMatch) return appIdMatch[1];
-    } catch (e) {
-      // ignore and try next
-    }
+    } catch (e) {}
   }
-  // If not found, search recursively for any of the ini files
   for (const iniFile of iniFiles) {
     const foundPath = await findIniRecursive(dir, iniFile);
     if (foundPath) {
@@ -47,9 +41,7 @@ export async function extractAppIdFromSteamEmuIni(dir: string) {
         const content = await readTextFile(foundPath);
         const appIdMatch = content.match(/AppId\s*=\s*(\d+)/i);
         if (appIdMatch) return appIdMatch[1];
-      } catch (readError) {
-        // ignore and try next
-      }
+      } catch (readError) {}
     }
   }
   return null;

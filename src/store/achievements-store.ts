@@ -58,7 +58,6 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
           ),
         });
     },
-    // make them defaultvalue 0 and achievedat 0
     resetAchievementsBasedOnAppid: (appid: number) => {
       set((state) => ({
         achievements: state.achievements.map((ach) => {
@@ -85,7 +84,6 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
       }));
       return get().achievements;
     },
-    // ----------
     trackAchievementsFiles: [],
     addTrackedFile: (appid, filePath) => {
       set((state) => ({

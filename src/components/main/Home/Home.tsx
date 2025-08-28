@@ -35,13 +35,9 @@ function Home() {
   const [shuffledDiscoverGames, setShuffledDiscoverGames] = useState<
     GameStoreData[]
   >([]);
-
-  // Load profile on mount
   useEffect(() => {
     loadProfile();
   }, []);
-
-  // Parse achievements for all games
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -52,8 +48,6 @@ function Home() {
       setLoading(false);
     })();
   }, [games]);
-
-  // Update shuffled discover games when games change
   useEffect(() => {
     const unplayedGames = games.filter((game) => game.status === "not-played");
     if (unplayedGames.length > 0) {
@@ -63,8 +57,6 @@ function Home() {
       setShuffledDiscoverGames([]);
     }
   }, [games]);
-
-  // Game categorization logic
   const getGameSections = (): Array<{
     title: string;
     games: GameStoreData[];
@@ -73,8 +65,6 @@ function Home() {
     key: string;
   }> => {
     const sections = [];
-
-    // Currently Playing
     const currentlyPlaying = games.filter((game) => game.status === "playing");
     if (currentlyPlaying.length > 0) {
       sections.push({
@@ -85,8 +75,6 @@ function Home() {
         key: "playing",
       });
     }
-
-    // Recently Added (last 4 games by appId - assuming higher appId = more recent)
     const recentlyAdded = [...games]
       .sort((a, b) => b.appId - a.appId)
       .slice(0, 4);
@@ -99,8 +87,6 @@ function Home() {
         key: "recent",
       });
     }
-
-    // Completed Games
     const completedGames = games.filter(
       (game) => game.status === "completed" || game.status === "beaten"
     );
@@ -113,8 +99,6 @@ function Home() {
         key: "completed",
       });
     }
-
-    // High Rated Games (rating > 7)
     const highRatedGames = games.filter(
       (game) =>
         game.my_rating &&
@@ -130,8 +114,6 @@ function Home() {
         key: "rated",
       });
     }
-
-    // Random Selection
     if (shuffledDiscoverGames.length > 0) {
       sections.push({
         title: "Discover",

@@ -28,15 +28,11 @@ export function create_data_ini_file_content(
   };
 
   const lines: string[] = [];
-
-  // Meta section
   lines.push("[meta]");
   lines.push(`app_id=${meta.app_id}`);
   lines.push(`generated_at=${meta.generated_at}`);
   lines.push(`count=${meta.count}`);
   lines.push("");
-
-  // Achievements section
   lines.push("[achievements]");
 
   achievements.forEach((ach) => {
@@ -54,24 +50,15 @@ export function create_data_ini_file_content(
       defaultvalue: ach.defaultvalue ?? 0,
       icon: ach.icon ?? null,
       icongray: ach.icongray ?? null,
-      // unlocked will be 0 initially; use 1 to mark unlocked later
       unlocked: 0,
     };
-
-    // Store JSON as the value. Quotes are included by JSON.stringify.
     const jsonValue = JSON.stringify(valueObj);
-
-    // Escape any newlines in the JSON for safe INI storage
     const safeValue = jsonValue.replace(/\n/g, "\\n");
 
     lines.push(`${key}=${safeValue}`);
   });
-
-  // Final newline
   lines.push("");
 
   return lines.join("\n");
 }
-
-// legacy name (typo) kept for backwards compatibility
 export const crete_data_ini_file_content = create_data_ini_file_content;

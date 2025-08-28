@@ -1,7 +1,6 @@
 import "./index.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./components/main/Home/Home";
-// import Settings from "./components/main/Settings/Settings";
 import AnimatedContent from "./animation-ui/AnimatedContent";
 import DockContainer from "./components/main/shared/DockContainer";
 import Games from "./components/main/Game/Games";
@@ -24,7 +23,6 @@ function App() {
   useInitialWorkflow();
   useTrackingWorkflow();
 
-  // Initialize profile on app start
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);

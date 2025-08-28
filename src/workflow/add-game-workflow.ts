@@ -69,16 +69,10 @@ const useAddGameWorkflow = () => {
       if (metadata) {
         name = metadata.name;
         setGameLoadingName(name);
-        // cache image and return path
         const [cover, backgroundImg] = await Promise.all([
           downloadImage(metadata.header_image, `cover_${appId}.jpg`),
           downloadImage(metadata.background_raw, `background_${appId}.jpg`),
         ]);
-        // const [coverImageUrl, backgroundImageUrl] = await Promise.all([
-        //   loadImage(`cover_${appId}.jpg`),
-        //   loadImage(`background_${appId}.jpg`),
-        // ]);
-        //
         setAddGameLoadingProgress(75);
         const {
           capsule_image,
@@ -129,7 +123,6 @@ const useAddGameWorkflow = () => {
           });
           await achievements_store.save();
           setAddGameLoadingProgress(100);
-          // stale for one second
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           setAddGameLoading(false);
@@ -163,7 +156,6 @@ const useAddGameWorkflow = () => {
     }
   }
   function getGameNameAndDir(path: string) {
-    // Normalize path separators for Windows
     const normalizedPath = path.replace(/\\/g, "/");
     const dir = normalizedPath.substring(0, normalizedPath.lastIndexOf("/"));
     const fileWithExt = normalizedPath.substring(

@@ -6,7 +6,6 @@ interface State {
   setGameLoadingName: (name: string) => void;
   addGameLoadingProgress: number;
   setAddGameLoadingProgress: (progress: number) => void;
-  //
   confirmationModal: {
     status: boolean;
     actionText: string;
@@ -27,7 +26,6 @@ const useUIStateStore = create<State>((set) => ({
   addGameLoadingProgress: 0,
   setAddGameLoadingProgress: (progress) =>
     set({ addGameLoadingProgress: progress }),
-  //----
   confirmationModal: {
     status: false,
     actionText: "",

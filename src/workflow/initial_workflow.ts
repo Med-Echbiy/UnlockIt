@@ -12,8 +12,6 @@ const useInitialWorkflow = () => {
   const { addAchievement, setTrackedAchievementsFiles } =
     useAchievementsStore();
   const { addHowLongToBeatData } = useHowLongToBeatStore();
-
-  //
   const [myGamesStore, setMyGames] = useState<Store | null>(null);
   const [achievementsStore, setAchievements] = useState<Store | null>(null);
   const [howLongToBeatStore, setHowLongToBeatStore] = useState<Store | null>(
@@ -39,12 +37,6 @@ const useInitialWorkflow = () => {
       setHowLongToBeatStore(howLongToBeat_store);
       setTrackedAchievementsFilesState(tracked_files_store);
 
-      // Uncomment to clear stores if needed
-      // store.clear();
-      // achievements_store.clear();
-      // howLongToBeat_store.clear();
-      // tracked_files_store.clear();
-
       const [data, data_achievement, data_howLongToBeat] = await Promise.all([
         store.entries(),
         achievements_store.entries(),
@@ -54,25 +46,16 @@ const useInitialWorkflow = () => {
       const obj = Object.fromEntries(data);
       const objAchievements = Object.fromEntries(data_achievement);
       const objHowLongToBeat = Object.fromEntries(data_howLongToBeat);
-
-      // Load games
       for (const [, value] of Object.entries(obj)) {
         addGame(value as GameStoreData);
       }
-
-      // Load achievements
       for (const [_key, value] of Object.entries(objAchievements)) {
         addAchievement(value as SteamSchemaResponse);
       }
-
-      // Load HowLongToBeat data
       for (const [key, value] of Object.entries(objHowLongToBeat)) {
-        // The key format should be "appId_beatTime", so extract the appId
         const appId = key.replace("_beatTime", "");
         addHowLongToBeatData(appId, value as HowLongToBeatGame);
       }
-
-      // Load tracked achievements files
       const trackedList: { appid: number; filePath: string }[] =
         (await tracked_files_store.get("trackedAchievementsFiles")) || [];
       setTrackedAchievementsFiles(trackedList);
