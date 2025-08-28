@@ -30,7 +30,6 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
     const el = ref.current;
     if (!el) return;
 
-    // Define optimized settings for each variant
     const animationConfigs = {
       slide: {
         initial: { y: 50, opacity: 0 },
@@ -90,10 +89,8 @@ const AnimatedContent: React.FC<AnimatedContentProps> = ({
 
     const config = animationConfigs[variant];
 
-    // Set initial state
     gsap.set(el, config.initial);
 
-    // Animate to final state with a small delay to ensure route change is complete
     const animation = gsap.to(el, {
       ...config.final,
       duration: config.duration,

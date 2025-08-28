@@ -43,13 +43,9 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
     const progressBar = progressRef.current;
 
     if (!container || !orbs || !controller || !progressBar) return;
-
-    // Initial setup
     gsap.set(container, { opacity: 0, scale: 0.8 });
     gsap.set(orbs.children, { opacity: 0, scale: 0 });
     gsap.set(controller, { rotation: -10, scale: 0.8 });
-
-    // Entrance animation
     const tl = gsap.timeline();
 
     tl.to(container, {
@@ -79,8 +75,6 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
         },
         "-=0.4"
       );
-
-    // Floating controller animation
     gsap.to(controller, {
       y: -8,
       duration: 2,
@@ -88,8 +82,6 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
       yoyo: true,
       ease: "power2.inOut",
     });
-
-    // Orbiting particles
     gsap.to(orbs.children, {
       rotation: 360,
       duration: 8,
@@ -97,8 +89,6 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
       ease: "none",
       stagger: 0.5,
     });
-
-    // Pulsing glow effect
     gsap.to(controller, {
       filter: "drop-shadow(0 0 20px rgba(59, 130, 246, 0.8))",
       duration: 1.5,
@@ -113,7 +103,6 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
   }, []);
 
   useEffect(() => {
-    // When progress reaches 100, mark as complete and call onComplete
     if (addGameLoadingProgress >= 100) {
       setIsComplete(true);
       setTimeout(() => {
@@ -121,8 +110,6 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
       }, 1000);
     }
   }, [addGameLoadingProgress, onComplete]);
-
-  // Optionally, you can map progress to steps for icon/text
   const stepIndex = Math.min(
     Math.floor((addGameLoadingProgress / 100) * loadingSteps.length),
     loadingSteps.length - 1

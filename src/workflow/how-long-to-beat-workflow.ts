@@ -27,8 +27,6 @@ const useHowLongToBeatWorkflow = () => {
     removeHowLongToBeatData,
     hasHowLongToBeatData,
   } = useHowLongToBeatStore();
-
-  // Initialize Tauri store
   const getStore = async (): Promise<Store> => {
     return await load("howlongtobeat.json");
   };
@@ -43,19 +41,10 @@ const useHowLongToBeatWorkflow = () => {
     name: string
   ): Promise<HowLongToBeatGame | null> {
     try {
-      // Step 1: Get the game from our library
-      // const game = getGameById(appId);
-      // if (!game) {
-      //   toast.error("Game not found in library");
-      //   return null;
-      // }
-
-      // Step 2: Check if we already have stored data (check session store first, then persistent store)
       let existingData = getHowLongToBeatDataById(appId);
       if (!existingData) {
         const persistentData = await getStoredGameData(appId);
         if (persistentData) {
-          // Add to session store for faster future access
           addHowLongToBeatData(appId, persistentData);
           existingData = persistentData;
         }
@@ -67,8 +56,6 @@ const useHowLongToBeatWorkflow = () => {
         );
         return existingData;
       }
-
-      // Step 3: Fetch HowLongToBeat data
       toast.info(`Searching HowLongToBeat for "${name}"...`);
       const searchResults = await fetchHowLongToBeatData(name);
 
@@ -76,16 +63,12 @@ const useHowLongToBeatWorkflow = () => {
         toast.error("No HowLongToBeat data found for this game");
         return null;
       }
-
-      // Step 4: Show dialog and wait for user selection
       const selectedGame = await openHowLongToBeatSelection(searchResults);
 
       if (!selectedGame) {
         toast.info("Selection cancelled");
         return null;
       }
-
-      // Step 5: Save the selected game data (both to session and persistent storage)
       await saveGameData(appId, selectedGame);
       addHowLongToBeatData(appId, selectedGame);
       toast.success(`HowLongToBeat data saved for ${selectedGame.game_name}`);
@@ -162,10 +145,7 @@ const useHowLongToBeatWorkflow = () => {
    */
   async function clearStoredGameData(appId: string): Promise<void> {
     try {
-      // Clear from session store
       removeHowLongToBeatData(appId);
-
-      // Clear from persistent store
       const store = await getStore();
       const storeKey = `${appId}_beatTime`;
       await store.delete(storeKey);

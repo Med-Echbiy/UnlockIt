@@ -24,8 +24,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-// Rating helper functions
 const getRatingTier = (rating: string) => {
   if (rating === "N/A") return "na";
   const numRating = Number(rating);
@@ -51,29 +49,20 @@ function Games() {
     genre: "all" as string,
   });
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // Get unique genres from all games
   const allGenres = games.flatMap((game) => game.genres);
   const uniqueGenres = Array.from(
     new Set(allGenres.map((genre) => genre.description))
   ).sort();
-
-  // Filter games based on current filters
   const filteredGames = games.filter((game) => {
-    // Status filter
     if (filters.status !== "all" && game.status !== filters.status) {
       return false;
     }
-
-    // Rating filter
     if (filters.rating !== "all") {
       const gameTier = getRatingTier(game.my_rating);
       if (gameTier !== filters.rating) {
         return false;
       }
     }
-
-    // Metacritic filter
     if (filters.metacritic !== "all") {
       const score = game.metacritic?.score || 0;
       switch (filters.metacritic) {
@@ -91,8 +80,6 @@ function Games() {
           break;
       }
     }
-
-    // Genre filter
     if (filters.genre !== "all") {
       const hasGenre = game.genres.some(
         (genre) => genre.description === filters.genre

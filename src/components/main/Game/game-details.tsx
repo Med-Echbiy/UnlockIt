@@ -90,7 +90,6 @@ function GameDetailsHeader({ id }: { id: string }) {
   const { playtime, isRunning, startTracking, stopTracking } =
     useRustTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
   const [coverImg, setCoverImage] = useState<string | null>(null);
-  // const [backgroundImg, setBackgroundImage] = useState<string | null>(null);
   const [installed, setInstalled] = useState<boolean>(false);
 
   useEffect(() => {
@@ -104,11 +103,6 @@ function GameDetailsHeader({ id }: { id: string }) {
             path: game.header_image,
           })
         );
-        // setBackgroundImage(
-        //   await invoke("load_image", {
-        //     path: game.background,
-        //   })
-        // );
       }
     })();
   }, [id]);
@@ -231,7 +225,6 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
     : filter === "locked"
     ? achievements.filter((a) => a?.defaultvalue === 0)
     : achievements.filter((a) => a?.hidden === 1);
-  //------------
   const { parseAchievements } = useParsingWorkflow({
     appid: game.appId,
     exePath: game.exePath,
@@ -244,9 +237,7 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
       confirmationModal.onCancel();
     });
   }
-  // useEffect(() => {
-  //   parseAchievements();
-  // }, []);
+
   return (
     <>
       <Card>
@@ -479,7 +470,6 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
   );
 }
 
-// Status icons mapping
 const getStatusIcon = (status: GameStoreData["status"]) => {
   const iconMap = {
     "not-played": CircleDot,
@@ -492,7 +482,6 @@ const getStatusIcon = (status: GameStoreData["status"]) => {
   return iconMap[status] || CircleDot;
 };
 
-// Status colors mapping
 const getStatusColor = (status: GameStoreData["status"]) => {
   const colorMap = {
     "not-played": "text-gray-400 bg-gray-100 hover:bg-gray-200 border-gray-300",
@@ -507,7 +496,6 @@ const getStatusColor = (status: GameStoreData["status"]) => {
   return colorMap[status] || colorMap["not-played"];
 };
 
-// Rating styling helpers
 const getRatingTier = (rating: string) => {
   if (rating === "N/A") return "na";
   const numRating = Number(rating);
@@ -557,7 +545,6 @@ const getRatingLabel = (rating: string) => {
   return labelMap[tier] || "N/A";
 };
 
-// Game Status Selector Component
 function GameStatusSelector({
   currentStatus,
   onStatusChange,
@@ -627,7 +614,6 @@ function GameStatusSelector({
   );
 }
 
-// Game Rating Input Component
 function GameRatingInput({
   currentRating,
   onRatingChange,
@@ -643,7 +629,6 @@ function GameRatingInput({
   const ratingLabel = getRatingLabel(currentRating);
 
   const handleSave = () => {
-    // Validate rating (should be N/A or number between 0-100)
     if (
       tempRating === "N/A" ||
       (Number(tempRating) >= 0 &&
@@ -714,7 +699,6 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
     useState<HowLongToBeatGame | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check for existing data on component mount
   useEffect(() => {
     const existingData = getSessionData(String(game.appId));
     if (existingData) {
@@ -743,15 +727,6 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
     await clearStoredGameData(String(game.appId));
     setHowLongToBeatData(null);
   };
-
-  // const formatTime = (minutes: number): string => {
-  //   if (minutes === 0) return "N/A";
-  //   const hours = Math.floor(minutes / 60 / 60);
-  //   const mins = minutes % 60;
-  //   if (hours === 0) return `${mins}m`;
-  //   if (mins === 0) return `${hours}h`;
-  //   return `${hours}h ${mins}m`;
-  // };
 
   const getCompletionData = () => [
     {

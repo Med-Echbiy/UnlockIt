@@ -166,7 +166,6 @@ export default function Dock({
 }: DockProps) {
   const mouseX = useMotionValue(Infinity);
 
-  // Fixed container height that includes space for magnified items
   const containerHeight = Math.max(panelHeight, magnification + 40);
 
   return (

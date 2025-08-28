@@ -376,27 +376,22 @@ function AsyncHowLongToBeatDialog({
     </Dialog>
   );
 }
-
-// Promise-based function for awaitable usage
 export async function openHowLongToBeatSelection(
   data: HowLongToBeatResponse
 ): Promise<HowLongToBeatGame | null> {
   return new Promise((resolve) => {
-    // Create a container for the dialog
     const container = document.createElement("div");
     document.body.appendChild(container);
 
     const root = createRoot(container);
 
     const handleSelect = (game: HowLongToBeatGame) => {
-      // Clean up
       root.unmount();
       document.body.removeChild(container);
       resolve(game);
     };
 
     const handleClose = () => {
-      // Clean up
       root.unmount();
       document.body.removeChild(container);
       resolve(null);

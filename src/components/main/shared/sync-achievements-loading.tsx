@@ -28,8 +28,6 @@ export function SyncAchievementsLoading({
   const [progress, setProgress] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
-
-  // Record when the loading became visible so we can enforce a minimum visible time
   useEffect(() => {
     if (isVisible) {
       setStartTime(Date.now());
@@ -46,8 +44,6 @@ export function SyncAchievementsLoading({
         const newProgress = prev + Math.random() * 15;
         if (newProgress >= 100) {
           clearInterval(progressInterval);
-
-          // Ensure the loading UI stays visible for at least 2000ms
           const elapsed = startTime ? Date.now() - startTime : 2000;
           const minVisible = 2000;
           const remaining = Math.max(minVisible - elapsed, 0);
