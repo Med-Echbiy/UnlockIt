@@ -24,8 +24,6 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     childRef.current = null;
     setIsRunning(false);
     await persistPlaytime(playtime);
-    // log exit code when available
-    // ...existing code...
   }
 
   const startTracking = async () => {
@@ -40,17 +38,13 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     }
 
     try {
-      // create command using exePath as the program to run
       const command = Command.create(exePath, []);
       const child = await command.spawn();
       childRef.current = child;
       setIsRunning(true);
-
-      // Attach event listeners if available
       if (child) {
         const anyChild = child as any;
         if (typeof anyChild.on === "function") {
-          // some runtimes emit an object or (code) depending on implementation
           anyChild.on("close", (arg: any) => {
             const code = arg && typeof arg === "object" ? arg.code : arg;
             handleProcessExit(code);
@@ -59,15 +53,12 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
             handleProcessExit();
           });
         } else if (typeof anyChild.wait === "function") {
-          // some Child implementations expose a wait/exit promise
           anyChild
             .wait()
             .then((res: any) => handleProcessExit(res && res.code))
             .catch(() => handleProcessExit());
         }
       }
-
-      // Tick every second
       intervalRef.current = window.setInterval(() => {
         setPlaytime((prev) => {
           const next = prev + 1;
@@ -83,7 +74,6 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    // don't forcibly kill the child by default
     childRef.current = null;
     setIsRunning(false);
     if (save) await persistPlaytime(playtime);
@@ -95,7 +85,6 @@ const useTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-      // persist last known playtime
       (async () => {
         await persistPlaytime(playtime);
       })();

@@ -1,8 +1,6 @@
 import { Achievement, SteamSchemaResponse } from "@/types/achievements";
 import { appLocalDataDir } from "@tauri-apps/api/path";
 import { writeFile, mkdir, readFile } from "@tauri-apps/plugin-fs";
-
-// Helper to join paths safely regardless of trailing/leading slashes
 function joinPath(base: string, ...parts: string[]) {
   const useBackslash = base.includes("\\");
   const sep = useBackslash ? "\\" : "/";
@@ -30,7 +28,6 @@ const useStoreAchievements = () => {
     );
     data.game.availableGameStats!.achievements = achievements;
     const fileName = options.fileName ? options.fileName : "achievements.json";
-    // Ensure directory exists
     await mkdir(dir, { recursive: true });
     const filePath = joinPath(dir, fileName);
     const json = JSON.stringify(data, null, 2);
@@ -65,7 +62,6 @@ const useStoreAchievements = () => {
     app_id: string,
     { name, achievedAt }: { name: string; achievedAt: string }
   ) {
-    // Use the appid to get the achievement file
     const dir = await appLocalDataDir();
 
     const filePath = joinPath(
@@ -77,7 +73,6 @@ const useStoreAchievements = () => {
     try {
       getFile = await readFile(filePath);
     } catch (e) {
-      // File does not exist or cannot be read
       return false;
     }
     let parsed;
@@ -87,7 +82,6 @@ const useStoreAchievements = () => {
           ? JSON.parse(getFile)
           : JSON.parse(new TextDecoder().decode(getFile));
     } catch (e) {
-      // Invalid JSON
       return false;
     }
     const achievements: Achievement[] =
@@ -97,7 +91,6 @@ const useStoreAchievements = () => {
         ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: achievedAt }
         : ach
     );
-    // Update the file, preserving all other game data
     const updated = {
       ...parsed,
       game: {

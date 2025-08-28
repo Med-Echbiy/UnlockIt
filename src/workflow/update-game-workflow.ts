@@ -10,10 +10,7 @@ const useUpdateGameWorkflow = () => {
     appId: string,
     status: GameStoreData["status"]
   ) => {
-    // Update Zustand store
     setStoreStatus(appId, status);
-
-    // Update Tauri store
     try {
       const store = await load("my-games.json");
       const gameKey = `game_${appId}`;
@@ -30,10 +27,7 @@ const useUpdateGameWorkflow = () => {
   };
 
   const setGameRating = async (appId: string, rating: string) => {
-    // Update Zustand store
     setStoreRating(appId, rating);
-
-    // Update Tauri store
     try {
       const store = await load("my-games.json");
       const gameKey = `game_${appId}`;

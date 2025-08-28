@@ -6,13 +6,11 @@ const sharedParsingWorkflow = () => {
   const { addTrackedFile, getTrackedAchievementsFiles } =
     useAchievementsStore();
   const { trackedAchievementsFilesStore } = useInitialWorkflow();
-  // Your implementation here
   const checkExePath = async (exePath: string) => {
     const check = await exists(exePath);
     return check;
   };
   async function saveToTrackList(appid: number, filePath: string) {
-    // check if it already there
     const check_exists = getTrackedAchievementsFiles().find(
       (e) => e.filePath === filePath
     );
