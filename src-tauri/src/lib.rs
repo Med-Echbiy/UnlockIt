@@ -912,7 +912,7 @@ async fn toast_notification(
     let mut toast = Toast::new(xbox_app_id)
         .title(&game_name) // Use game name as the title
         .text1(&achievement_text) // Use formatted description as text1
-        .duration(Duration::Long) // Use Long duration for better visibility
+        .duration(Duration::Short) 
         .sound(None); // Sound disabled
     if let Some(hero_path) = processed_hero_path {
         println!("Adding Xbox-style hero image: {:?}", hero_path);

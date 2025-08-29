@@ -142,7 +142,7 @@ function AsyncHowLongToBeatDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className='w-full max-h-[85vh] overflow-hidden flex flex-col sm:max-w-3xl'>
+      <DialogContent className='w-full overflow-hidden flex flex-col sm:max-w-3xl h-full max-h-[85vh] '>
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,7 +164,10 @@ function AsyncHowLongToBeatDialog({
           </DialogHeader>
         </motion.div>
 
-        <ScrollArea className='flex-1 pr-4'>
+        <ScrollArea className='flex-1 pr-4 overflow-auto'>
+          <DialogDescription className='text-sm text-muted-foreground mb-2'>
+            <Button variant='outline'>Total Results: {data.length} </Button>
+          </DialogDescription>
           <div className='space-y-4'>
             <AnimatePresence>
               {data.map((game, index) => {
