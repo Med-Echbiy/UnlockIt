@@ -23,6 +23,7 @@ export interface Achievement {
   icon?: string;
   icongray?: string;
   achievedAt?: string;
+  percent?: string;
 }
 
 export interface GameStat {

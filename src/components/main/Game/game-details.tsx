@@ -10,6 +10,7 @@ import useAchievementsStore from "@/store/achievements-store";
 import useMyGamesStore from "@/store/my-games-store";
 import useEnhancedTrackPlaytimeWorkflow from "@/workflow/enhanced-track-playtime-workflow";
 import useHowLongToBeatWorkflow from "@/workflow/how-long-to-beat-workflow";
+import useScoringSystemWorkflow from "@/workflow/scoring-system-worfklow";
 import { HowLongToBeatGame } from "@/types/howLongToBeat";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -41,6 +42,8 @@ import {
   RotateCcw,
   Gem,
   Award,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -54,9 +57,13 @@ import { motion } from "framer-motion";
 import useParsingWorkflow from "@/workflow/parser/parse-workflow";
 import useResetAchievementsWorkflow from "@/workflow/reset-achievements-workflow";
 import useUIStateStore from "@/store/ui-state-store";
+import { useGameCardTier } from "@/hooks/use-ranking";
 import useUpdateGameWorkflow from "@/workflow/update-game-workflow";
 import { Input } from "@/components/ui/input";
 import { formatPlayTime } from "@/lib/howLongToBeatHelper";
+import { SystemScoreAchievement } from "./system-score-achievement";
+import { getTierByPercentage, TIER_CONFIGS } from "@/lib/ranking-system";
+import type { AchievementTier } from "@/lib/ranking-system";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -72,6 +79,8 @@ function GameDetails() {
         <Card className='grid grid-cols-1 p-3 gap-5 bg-transparent border-none  shadow-none'>
           <GameDetailsHeader id={id!} />
           <Separator />
+          <SystemScoreSection game={game} />
+          <Separator />
           <HowLongToBeatHeader game={game} />
           <Separator />
           <GameDetailsAchievements game={game} />
@@ -82,6 +91,226 @@ function GameDetails() {
 }
 
 export default GameDetails;
+
+function SystemScoreSection({ game }: { game: GameStoreData }) {
+  const { calculateGameScore } = useScoringSystemWorkflow();
+  const [gameScore, setGameScore] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Get achievements from store
+  const rawAchievements = useAchievementsStore(
+    (s) =>
+      s.getAchievementByName?.(game?.name, String(game?.appId))?.game
+        ?.availableGameStats?.achievements
+  );
+  const achievements = Array.isArray(rawAchievements) ? rawAchievements : [];
+  const totalUnlocked = achievements.filter(
+    (e) => e?.defaultvalue === 1
+  ).length;
+  const totalAchievements = achievements.length;
+
+  // Use the new ranking system
+  const { config: tierConfig } = useGameCardTier(
+    totalUnlocked,
+    totalAchievements
+  );
+
+  useEffect(() => {
+    const calculateScore = async () => {
+      try {
+        setIsLoading(true);
+        const score = calculateGameScore(game.appId);
+        setGameScore(score);
+      } catch (error) {
+        console.error("Error calculating game score:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    calculateScore();
+  }, [game]);
+
+  const formatScore = (score: number): string => {
+    if (isNaN(score) || score === 0) return "0";
+    if (score >= 1000000) return `${(score / 1000000).toFixed(1)}M`;
+    if (score >= 1000) return `${(score / 1000).toFixed(1)}K`;
+    return score.toLocaleString();
+  };
+
+  if (isLoading) {
+    return (
+      <Card className='w-full'>
+        <CardHeader>
+          <div className='flex items-center gap-3'>
+            <div className='w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center'>
+              <BarChart3 className='w-5 h-5 text-white animate-pulse' />
+            </div>
+            <div>
+              <CardTitle className='text-xl'>System Score</CardTitle>
+              <CardDescription>
+                Calculating game performance metrics...
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (!gameScore) {
+    return (
+      <Card className='w-full'>
+        <CardHeader>
+          <div className='flex items-center gap-3'>
+            <div className='w-10 h-10 bg-gradient-to-br from-gray-500 to-slate-600 rounded-lg flex items-center justify-center'>
+              <BarChart3 className='w-5 h-5 text-white' />
+            </div>
+            <div>
+              <CardTitle className='text-xl'>System Score</CardTitle>
+              <CardDescription>
+                No scoring data available for this game
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className='w-full'>
+      <CardHeader>
+        <div className='flex items-center justify-between'>
+          <div className='flex items-center gap-3'>
+            <div
+              className='w-10 h-10 rounded-lg flex items-center justify-center shadow-lg'
+              style={{
+                background: `linear-gradient(135deg, ${tierConfig.colors.background})`,
+              }}
+            >
+              <BarChart3 className='w-5 h-5 text-white' />
+            </div>
+            <div>
+              <CardTitle className='text-xl'>System Score</CardTitle>
+              <CardDescription>
+                Performance analysis and ranking for {game.name}
+              </CardDescription>
+            </div>
+          </div>
+          {/* <div className='flex items-center gap-3'>
+            <Badge
+              variant='outline'
+              className='px-4 py-2 text-white border-0 shadow-lg'
+              style={{
+                background: `linear-gradient(135deg, ${tierConfig.colors.background})`,
+              }}
+            >
+              <div className='flex items-center gap-2'>
+                {(() => {
+                  const IconComponent = tierConfig.icon;
+                  return (
+                    <IconComponent
+                      className={`h-4 w-4 ${tierConfig.colors.text}`}
+                    />
+                  );
+                })()}
+                <span className='font-bold'>{tierConfig.name}</span>
+              </div>
+            </Badge>
+          </div> */}
+        </div>
+
+        <div className='grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6'>
+          {/* Total Score */}
+          <div className='bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-4 text-center border'>
+            <div className='flex items-center justify-center gap-1 text-sm font-medium mb-2 text-blue-600 dark:text-blue-400'>
+              <TrendingUp className='w-4 h-4' />
+              Total Score
+            </div>
+            <div className='text-2xl font-bold text-foreground mb-1 font-mono'>
+              {formatScore(Math.round(gameScore.totalGameScore || 0))}
+            </div>
+            <div className='text-xs text-muted-foreground'>points</div>
+          </div>
+
+          {/* Completion Percentage */}
+          <div className='bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg p-4 text-center border'>
+            <div className='flex items-center justify-center gap-1 text-sm font-medium mb-2 text-green-600 dark:text-green-400'>
+              <Target className='w-4 h-4' />
+              Completion
+            </div>
+            <div className='text-2xl font-bold text-foreground mb-1'>
+              {(gameScore.completionPercentage || 0).toFixed(1)}%
+            </div>
+            <div className='text-xs text-muted-foreground'>progress</div>
+          </div>
+
+          {/* Achievements */}
+          <div className='bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 rounded-lg p-4 text-center border'>
+            <div className='flex items-center justify-center gap-1 text-sm font-medium mb-2 text-amber-600 dark:text-amber-400'>
+              <Trophy className='w-4 h-4' />
+              Achievements
+            </div>
+            <div className='text-2xl font-bold text-foreground mb-1'>
+              {gameScore.achievements?.length || 0}
+            </div>
+            <div className='text-xs text-muted-foreground'>unlocked</div>
+          </div>
+
+          {/* Achievement Tier Position */}
+          <div
+            className='rounded-lg p-4 text-center border'
+            style={{
+              background: `linear-gradient(135deg, ${tierConfig.colors.background}20, ${tierConfig.colors.background}10)`,
+            }}
+          >
+            <div
+              className={`flex items-center justify-center gap-1 text-sm font-medium mb-2 ${tierConfig.colors.text}`}
+            >
+              {(() => {
+                const IconComponent = tierConfig.icon;
+                return <IconComponent className='h-4 w-4' />;
+              })()}
+              Achievement Tier
+            </div>
+            <div className='text-lg font-bold text-foreground mb-1'>
+              {tierConfig.name}
+            </div>
+            <div className='text-xs text-muted-foreground'>current tier</div>
+          </div>
+        </div>
+
+        {/* Achievement Breakdown */}
+        {gameScore.achievements && gameScore.achievements.length > 0 && (
+          <div className='mt-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border'>
+            <h4 className='text-sm font-semibold mb-3 text-foreground'>
+              Achievement Breakdown
+            </h4>
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
+              {gameScore.achievements
+                .slice(0, 6)
+                .map((achievement: any, index: number) => (
+                  <SystemScoreAchievement
+                    key={index}
+                    achievement={achievement}
+                    index={index}
+                  />
+                ))}
+            </div>
+            {gameScore.achievements.length > 6 && (
+              <div className='text-center mt-3'>
+                <Badge variant='outline' className='text-xs'>
+                  +{gameScore.achievements.length - 6} more achievements
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
+      </CardHeader>
+    </Card>
+  );
+}
 
 function GameDetailsHeader({ id }: { id: string }) {
   const game = useMyGamesStore((state) => state.getGameById(id as string));
@@ -326,16 +555,48 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
 
 function AchievementCard({ achievement }: { achievement: Achievement }) {
   const [icon, setIcon] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Calculate achievement tier based on unlock percentage (mock calculation)
+  // In real implementation, you'd get this from your achievement statistics
+  const mockUnlockPercentage =
+    achievement.defaultvalue === 1 ? Math.random() * 100 : 0;
+  const achievementTier: AchievementTier =
+    getTierByPercentage(mockUnlockPercentage);
+  const tierConfig = TIER_CONFIGS[achievementTier];
 
   useEffect(() => {
-    (async () => {
-      if (achievement.defaultvalue === 0 && achievement.hidden === 1) {
-        setIcon(await invoke("load_image", { path: achievement.icongray }));
-      } else {
-        setIcon(await invoke("load_image", { path: achievement.icon }));
+    const loadIcon = async () => {
+      try {
+        setIsLoading(true);
+        let iconPath: string;
+
+        if (achievement.defaultvalue === 0 && achievement.hidden === 1) {
+          iconPath = achievement.icongray || achievement.icon || "";
+        } else {
+          iconPath = achievement.icon || "";
+        }
+
+        if (iconPath) {
+          const loadedIcon = await invoke<string>("load_image", {
+            path: iconPath,
+          });
+          setIcon(loadedIcon);
+        }
+      } catch (error) {
+        console.error("Error loading achievement icon:", error);
+      } finally {
+        setIsLoading(false);
       }
-    })();
-  }, []);
+    };
+
+    loadIcon();
+  }, [
+    achievement.icon,
+    achievement.icongray,
+    achievement.defaultvalue,
+    achievement.hidden,
+  ]);
 
   const isUnlocked = achievement.defaultvalue === 1;
   const isHidden = achievement.hidden === 1;
@@ -345,55 +606,65 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -2, scale: 1.02 }}
       className='group'
     >
       <Card
-        className={`
-        relative overflow-hidden border-0 bg-gradient-to-br transition-all duration-300
-        ${
-          isUnlocked
-            ? "from-amber-500/10 via-yellow-500/5 to-orange-500/10 shadow-lg shadow-amber-500/20 hover:shadow-xl hover:shadow-amber-500/30"
-            : "from-slate-800/50 via-slate-700/30 to-slate-600/20 shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30"
-        }
-        backdrop-blur-sm group-hover:scale-[1.02] transition-transform duration-300
-      `}
+        className='relative overflow-hidden border-2 transition-all duration-300 backdrop-blur-sm hover:shadow-xl h-full flex flex-col'
+        style={{
+          background: isUnlocked
+            ? `linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(21, 128, 61, 0.02))`
+            : `linear-gradient(135deg, rgba(71, 85, 105, 0.15), rgba(51, 65, 85, 0.05))`,
+          borderColor: isUnlocked
+            ? "rgb(34, 197, 94)"
+            : "rgba(71, 85, 105, 0.2)",
+          boxShadow: isUnlocked
+            ? `0 4px 20px rgba(34, 197, 94, 0.2)`
+            : "0 4px 20px rgba(0, 0, 0, 0.1)",
+        }}
       >
+        {/* Animated gradient overlay on hover */}
         <div className='absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500' />
 
-        <div className='absolute top-3 right-3'>
+        {/* Status indicator */}
+        <div className='absolute top-3 right-3 z-10'>
           {isUnlocked ? (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className='relative'
             >
-              <Trophy className='w-4 h-4 text-amber-400' />
+              <div className='w-6 h-6 rounded-full flex items-center justify-center bg-green-500'>
+                <Unlock className='w-3 h-3 text-white' />
+              </div>
             </motion.div>
           ) : (
-            <Star className='w-4 h-4 text-slate-500' />
+            <div className='w-6 h-6 rounded-full bg-slate-600/50 flex items-center justify-center'>
+              <Lock className='w-3 h-3 text-slate-400' />
+            </div>
           )}
         </div>
 
-        <CardHeader className='p-4'>
-          <div className='flex items-start gap-4'>
+        <CardHeader className='p-4 flex-1 flex flex-col'>
+          <div className='flex items-start gap-4 flex-1'>
+            {/* Achievement Icon */}
             <div
-              className={`
-              relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden
-              ${
-                isUnlocked
-                  ? "bg-gradient-to-br from-amber-400/20 to-orange-500/20 ring-2 ring-amber-400/30"
-                  : "bg-gradient-to-br from-slate-600/20 to-slate-700/20 ring-2 ring-slate-500/30"
-              }
-              transition-all duration-300 group-hover:ring-4
-              ${
-                isUnlocked
-                  ? "group-hover:ring-amber-400/50"
-                  : "group-hover:ring-slate-400/50"
-              }
-            `}
+              className='relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden ring-2 transition-all duration-300 group-hover:ring-4'
+              style={{
+                background: isUnlocked
+                  ? `linear-gradient(135deg, rgba(34, 197, 94, 0.4), rgba(21, 128, 61, 0.2))`
+                  : `linear-gradient(135deg, rgba(71, 85, 105, 0.4), rgba(51, 65, 85, 0.2))`,
+                borderColor: isUnlocked
+                  ? `rgb(34, 197, 94)`
+                  : "rgba(71, 85, 105, 0.3)",
+              }}
             >
-              {icon && (
+              {isLoading ? (
+                <div className='w-full h-full bg-slate-300 dark:bg-slate-600 animate-pulse rounded-xl flex items-center justify-center'>
+                  <Trophy className='w-6 h-6 text-slate-500' />
+                </div>
+              ) : icon ? (
                 <motion.img
                   src={icon}
                   alt={achievement.name}
@@ -402,74 +673,102 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.3 }}
                 />
-              )}
-              {!icon && (
-                <div className='w-full h-full bg-slate-700/50 animate-pulse rounded-lg flex items-center justify-center'>
-                  <Trophy className='w-6 h-6 text-slate-500' />
+              ) : (
+                <div className='w-full h-full flex items-center justify-center'>
+                  {(() => {
+                    const IconComponent = tierConfig.icon;
+                    return (
+                      <IconComponent
+                        className={`w-6 h-6 ${tierConfig.colors.text}`}
+                      />
+                    );
+                  })()}
                 </div>
               )}
 
+              {/* Hover overlay for unlocked achievements */}
               {isUnlocked && (
-                <div className='absolute inset-0 bg-gradient-to-t from-amber-400/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300' />
+                <div
+                  className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300'
+                  style={{
+                    background: `linear-gradient(to top, rgba(34, 197, 94, 0.4), transparent)`,
+                  }}
+                />
               )}
             </div>
 
+            {/* Achievement Content */}
             <div className='flex-1 min-w-0 space-y-3'>
-              <div className='space-y-1'>
+              <div className='space-y-2'>
                 <h3
-                  className={`
-                  font-semibold text-lg leading-tight
-                  ${isUnlocked ? "text-amber-100" : "text-slate-300"}
-                  group-hover:text-white transition-colors duration-300
-                `}
+                  className={`font-semibold text-lg leading-tight transition-colors duration-300 ${
+                    isUnlocked
+                      ? "text-foreground group-hover:text-foreground"
+                      : "text-muted-foreground group-hover:text-foreground"
+                  }`}
                 >
                   {achievement.displayName}
                 </h3>
 
                 <p
-                  className={`
-                  text-sm leading-relaxed
-                  ${isUnlocked ? "text-amber-200/80" : "text-slate-400"}
-                  group-hover:text-slate-200 transition-colors duration-300
-                `}
+                  className={`text-sm leading-relaxed transition-colors duration-300 ${
+                    isUnlocked
+                      ? "text-muted-foreground group-hover:text-foreground"
+                      : "text-muted-foreground/70 group-hover:text-muted-foreground"
+                  }`}
                 >
                   {isHidden && !isUnlocked
-                    ? "Hidden Achievement"
+                    ? "Hidden Achievement - Unlock to reveal description"
                     : achievement.description}
                 </p>
               </div>
 
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.2 }}
-              >
-                <Badge
-                  className={`
-                    px-3 py-1 text-xs font-medium rounded-full border-0 transition-all duration-300
-                    ${
-                      isUnlocked
-                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50"
-                        : "bg-gradient-to-r from-slate-600 to-slate-700 text-slate-200 shadow-lg shadow-black/30 hover:shadow-black/50"
-                    }
-                    group-hover:scale-105
-                  `}
+              {/* Achievement Status & Tier */}
+              <div className='flex items-center justify-between gap-2'>
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.2 }}
                 >
-                  <span className='flex items-center gap-1.5'>
-                    {isUnlocked ? (
-                      <>
-                        <Unlock className='w-3 h-3' />
-                        <span>UNLOCKED</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock className='w-3 h-3' />
-                        <span>LOCKED</span>
-                      </>
-                    )}
-                  </span>
-                </Badge>
-              </motion.div>
+                  <Badge
+                    className='px-3 py-1 text-xs font-medium rounded-full border-0 transition-all duration-300 group-hover:scale-105'
+                    style={{
+                      background: isUnlocked
+                        ? `linear-gradient(135deg, ${tierConfig.colors.background})`
+                        : "linear-gradient(135deg, rgb(71, 85, 105), rgb(51, 65, 85))",
+                      color: "white",
+                    }}
+                  >
+                    <span className='flex items-center gap-1.5'>
+                      {isUnlocked ? (
+                        <>
+                          <Unlock className='w-3 h-3' />
+                          <span>UNLOCKED</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className='w-3 h-3' />
+                          <span>LOCKED</span>
+                        </>
+                      )}
+                    </span>
+                  </Badge>
+                </motion.div>
+
+                {/* Tier Badge for unlocked achievements */}
+                {isUnlocked && (
+                  <Badge
+                    variant='outline'
+                    className={`text-xs px-2 py-1 ${tierConfig.colors.text}`}
+                    style={{
+                      borderColor: `${tierConfig.colors.background}60`,
+                      background: `${tierConfig.colors.background}10`,
+                    }}
+                  >
+                    {achievementTier}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>

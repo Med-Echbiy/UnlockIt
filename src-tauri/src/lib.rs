@@ -1380,6 +1380,52 @@ async fn get_how_long_to_beat(game_name: String) -> Result<serde_json::Value, St
         Ok(serde_json::Value::Array(vec![]))
     }
 }
+
+#[tauri::command]
+async fn fetch_steam_achievement_percentages(appid: String) -> Result<serde_json::Value, String> {
+    let url = format!(
+        "https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid={}",
+        appid
+    );
+
+    println!("Fetching Steam achievement percentages from URL: {}", url);
+
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    let status = resp.status();
+    println!("HTTP Status: {}", status);
+
+    if !status.is_success() {
+        return Err(format!(
+            "HTTP error: {} - {}",
+            status.as_u16(),
+            status.canonical_reason().unwrap_or("Unknown")
+        ));
+    }
+
+    let response_text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response text: {}", e))?;
+
+    println!("Raw response: {}", response_text);
+    
+    let json: serde_json::Value = serde_json::from_str(&response_text).map_err(|e| {
+        format!(
+            "JSON parsing error: {} - Raw response: {}",
+            e, response_text
+        )
+    })?;
+
+    println!("Parsed JSON: {:#?}", json);
+    Ok(json)
+}
+
+//-------------------------------------
+
+//-------------------------------------
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1470,6 +1516,7 @@ pub fn run() {
             show_window,
             hide_window,
             get_how_long_to_beat,
+            fetch_steam_achievement_percentages,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
