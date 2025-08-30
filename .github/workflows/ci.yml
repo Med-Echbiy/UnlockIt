@@ -1,14 +1,10 @@
-name: CI
+name: "CI/CD Development"
 
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-
-env:
-  CARGO_INCREMENTAL: 0
-  RUST_BACKTRACE: short
 
 jobs:
   test-tauri:
@@ -21,52 +17,34 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-20.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
 
-      - name: Rust setup
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: Sync node version and setup cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
-          cache: "npm"
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
       - name: Install frontend dependencies
         run: pnpm install
 
-      - name: Run frontend linting
-        run: |
-          # Add linting commands when available
-          echo "Frontend linting would run here"
-
-      - name: Run frontend tests
-        run: |
-          # Add test commands when available
-          echo "Frontend tests would run here"
-
-      - name: Build frontend
-        run: pnpm build
-
-      - name: Run Rust tests
-        run: |
-          cd src-tauri
-          cargo test
-
-      - name: Build Tauri app (debug)
-        run: pnpm tauri build --debug
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}
