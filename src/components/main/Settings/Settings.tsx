@@ -310,7 +310,15 @@ function SettingsDialog() {
               <Button
                 onClick={async () => {
                   try {
-                    await invoke("test_toast_notification");
+                    await invoke("toast_notification", {
+                      iconPath: "",
+                      gameName: "UnlockIt Settings",
+                      achievementName: "Test Notification Working!",
+                      soundPath: getProfile().notificationSound,
+                      hero: "",
+                      progress: null,
+                      isRare: false,
+                    });
                     toast.success("Test notification sent!");
                   } catch (error) {
                     console.error("Test notification failed:", error);

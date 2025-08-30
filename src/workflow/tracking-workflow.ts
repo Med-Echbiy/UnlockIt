@@ -160,8 +160,12 @@ const useTrackingWorkflow = () => {
 
                   if (unlockedAchievements.length > 0) {
                     console.log("🎉 NEW ACHIEVEMENTS UNLOCKED!");
+
+                    // Show web toast notification
                     toast(
-                      `${unlockedAchievements.length} new achievements unlocked!`,
+                      `${unlockedAchievements.length} new achievement${
+                        unlockedAchievements.length > 1 ? "s" : ""
+                      } unlocked!`,
                       {
                         duration: 3000,
                         style: {
@@ -169,37 +173,56 @@ const useTrackingWorkflow = () => {
                         },
                       }
                     );
-                    for (const achievement of unlockedAchievements) {
-                      if (achievement) {
-                        console.log(
-                          "Showing native notification for achievement:",
-                          achievement.displayName || achievement.name
-                        );
 
-                        try {
-                          const audio = new Audio(
-                            getProfile().notificationSound
-                          ); // Ensure valid path
-                          audio.volume = 1; // Adjust volume as needed
-                          audio
-                            .play()
-                            .catch((err) =>
-                              console.warn("Failed to play custom sound:", err)
-                            );
-                          await invoke("toast_notification", {
-                            iconPath: achievement.icon || "",
-                            gameName: game.name,
-                            achievementName:
-                              achievement.displayName || achievement.name,
-                            soundPath: null,
-                            hero: game.header_image || "",
-                            progress: null, // Could be enhanced to show actual progress if available
-                            isRare: false, // Could be enhanced to detect rare achievements
-                          });
-                        } catch (error) {
-                          console.error("Failed to send notification:", error);
-                        }
+                    // Play sound ONCE for all achievements
+                    try {
+                      const soundPath = getProfile().notificationSound;
+                      console.log("=== SOUND DEBUG ===");
+                      console.log("Sound path from profile:", soundPath);
+                      console.log("Sound path type:", typeof soundPath);
+                      console.log(
+                        "Sound path exists:",
+                        soundPath ? "Yes" : "No"
+                      );
+
+                      if (soundPath) {
+                        console.log("Attempting to play notification sound...");
+                        const audio = new Audio(soundPath);
+                        audio.volume = 1;
+                        await audio
+                          .play()
+                          .catch((err) =>
+                            console.warn("Failed to play custom sound:", err)
+                          );
                       }
+
+                      // Show ONE native notification for all achievements
+                      const firstAchievement = unlockedAchievements[0];
+                      const achievementTitle =
+                        unlockedAchievements.length === 1
+                          ? firstAchievement?.displayName ||
+                            firstAchievement?.name ||
+                            "Achievement Unlocked"
+                          : `${unlockedAchievements.length} Achievements Unlocked!`;
+
+                      console.log(
+                        "Showing single native notification for",
+                        unlockedAchievements.length,
+                        "achievements"
+                      );
+
+                      await invoke("toast_notification", {
+                        iconPath:
+                          firstAchievement?.icon || game.header_image || "",
+                        gameName: game.name,
+                        achievementName: achievementTitle,
+                        soundPath: soundPath || null,
+                        hero: game.header_image || "",
+                        progress: null,
+                        isRare: false,
+                      });
+                    } catch (error) {
+                      console.error("Failed to send notification:", error);
                     }
                   } else {
                     console.log("No matching achievements found in game data");
