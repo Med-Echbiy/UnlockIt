@@ -1,5 +1,5 @@
 import React from "react";
-import { Trophy, Star, Target, Award, Crown, Zap, Medal } from "lucide-react";
+import { Trophy, Star, Target, Award, Crown, Medal } from "lucide-react";
 
 export type GameRank =
   | "Novice"
