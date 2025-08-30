@@ -8,6 +8,7 @@ interface MyGamesStore {
   getGameById: (appId: string) => GameStoreData | undefined;
   setStatus: (appId: string, status: GameStoreData["status"]) => void;
   setRating: (appId: string, rating: string) => void;
+  getGames: () => GameStoreData[];
 }
 
 const useMyGamesStore = create<MyGamesStore>((set, get) => ({
@@ -41,6 +42,7 @@ const useMyGamesStore = create<MyGamesStore>((set, get) => ({
         String(game.appId) === appId ? { ...game, my_rating: rating } : game
       ),
     })),
+  getGames: () => get().games,
 }));
 
 export default useMyGamesStore;

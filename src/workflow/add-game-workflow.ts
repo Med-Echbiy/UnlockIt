@@ -146,15 +146,44 @@ const useAddGameWorkflow = () => {
         },
       });
     } else {
-      const result: SteamSchemaResponse = await invoke("fetch_achievements", {
-        apiKey: apiKey.trim(),
-        appid: app_id,
-      });
+      const [achievementsResult, percentagesResult] = await Promise.all([
+        invoke("fetch_achievements", {
+          apiKey: apiKey.trim(),
+          appid: app_id,
+        }) as Promise<SteamSchemaResponse>,
+        invoke("fetch_steam_achievement_percentages", {
+          appid: app_id,
+        }) as Promise<any>,
+      ]);
 
-      await storeJson(result, {
+      if (
+        achievementsResult &&
+        percentagesResult?.achievementpercentages?.achievements
+      ) {
+        const percentageMap = new Map();
+        percentagesResult.achievementpercentages.achievements.forEach(
+          (item: any) => {
+            percentageMap.set(item.name, item.percent.toString());
+          }
+        );
+
+        if (achievementsResult.game?.availableGameStats?.achievements) {
+          achievementsResult.game.availableGameStats.achievements =
+            achievementsResult.game.availableGameStats.achievements.map(
+              (achievement) => ({
+                ...achievement,
+                percent: percentageMap.get(achievement.name) || "0",
+              })
+            );
+        }
+      }
+
+      await storeJson(achievementsResult, {
         fileName: `achievements_${app_id}.json`,
       });
-      return result;
+      console.log({ achievementsResult });
+
+      return achievementsResult;
     }
   }
   function getGameNameAndDir(path: string) {

@@ -58,7 +58,7 @@ function SettingsDialog() {
       setApiKey(storedApiKey);
     }
     loadProfile();
-  }, [loadProfile]);
+  }, [loadProfile, getProfile().avatar]);
 
   useEffect(() => {
     setTempName(getProfile().name);
@@ -194,7 +194,6 @@ function SettingsDialog() {
                   </div>
                 </div>
               </div>
-
               <div className='space-y-4'>
                 <Label>Profile Avatar</Label>
                 <div className='flex items-center gap-4'>

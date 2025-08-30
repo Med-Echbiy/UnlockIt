@@ -8,88 +8,23 @@ import type { GameStoreData } from "@/types/Game";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  Folder,
-  Users,
-  Trophy,
-  Award,
-  Medal,
-  Trash,
-} from "lucide-react";
+import { Calendar, Folder, Users, Trash } from "lucide-react";
 import useAchievementsStore from "@/store/achievements-store";
 import { Progress } from "@/components/ui/progress";
 import { invoke } from "@tauri-apps/api/core";
-import useRemoveGameWorkflow from "@/workflow/remove-game-workflow";
 import { Button } from "@/components/ui/button";
+import useRemoveGameWorkflow from "@/workflow/remove-game-workflow";
+import { useGameCardTier } from "@/hooks/use-ranking";
 
 interface GameCardProps {
   game: GameStoreData;
   index: number;
 }
 
-const getAchievementTier = (unlocked: number, total: number) => {
-  if (total === 0) return "bronze";
-  const percentage = (unlocked / total) * 100;
-
-  if (percentage === 100) return "platinum";
-  if (percentage >= 50) return "gold";
-  if (percentage >= 25) return "silver";
-  return "bronze";
-};
-
-const getTierStyles = (tier: string) => {
-  switch (tier) {
-    case "platinum":
-      return {
-        cardClass:
-          "bg-gradient-to-br from-slate-800/90 to-purple-900/90 border-purple-400/50 hover:border-purple-300/70",
-        overlayClass: "bg-gradient-to-r from-purple-600/20 to-indigo-600/20",
-        progressClass: "bg-purple-600",
-        badgeClass:
-          "bg-purple-600/20 text-purple-300 border-purple-500/30 hover:bg-purple-600/30",
-        icon: Trophy,
-        iconColor: "text-purple-400",
-      };
-    case "gold":
-      return {
-        cardClass:
-          "bg-gradient-to-br from-slate-800/90 to-yellow-900/90 border-yellow-400/50 hover:border-yellow-300/70",
-        overlayClass: "bg-gradient-to-r from-yellow-600/20 to-orange-600/20",
-        progressClass: "bg-yellow-600",
-        badgeClass:
-          "bg-yellow-600/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-600/30",
-        icon: Award,
-        iconColor: "text-yellow-400",
-      };
-    case "silver":
-      return {
-        cardClass:
-          "bg-gradient-to-br from-slate-900/90 to-slate-800/90 border-slate-500/40 hover:border-slate-400/60",
-        overlayClass: "bg-gradient-to-r from-slate-500/15 to-slate-600/15",
-        progressClass: "bg-slate-400",
-        badgeClass:
-          "bg-slate-600/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30",
-        icon: Medal,
-        iconColor: "text-slate-300",
-      };
-    default: // bronze
-      return {
-        cardClass:
-          "bg-slate-900/90 border-slate-700/50 hover:border-slate-600/70",
-        overlayClass: "bg-gradient-to-r from-blue-600/10 to-purple-600/10",
-        progressClass: "bg-orange-600",
-        badgeClass:
-          "bg-blue-600/20 text-blue-300 border-blue-500/30 hover:bg-blue-600/30",
-        icon: Medal,
-        iconColor: "text-orange-400",
-      };
-  }
-};
-
 export function GameCard({ game, index }: GameCardProps) {
   const [img, setImg] = useState<string | null>(null);
   const { removeGameFromStore } = useRemoveGameWorkflow();
+
   useEffect(() => {
     (async () => {
       const src: string = await invoke("load_image", {
@@ -98,6 +33,7 @@ export function GameCard({ game, index }: GameCardProps) {
       setImg(src);
     })();
   }, []);
+
   const rawAchievements = useAchievementsStore(
     (s) =>
       s.getAchievementByName?.(game?.name, String(game?.appId))?.game
@@ -112,9 +48,9 @@ export function GameCard({ game, index }: GameCardProps) {
   ).length;
   const total = achievements.length;
 
-  const tier = getAchievementTier(unlocked, total);
-  const tierStyles = getTierStyles(tier);
-  const TierIcon = tierStyles.icon;
+  const { config } = useGameCardTier(unlocked, total);
+  const TierIcon = config.icon;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -133,7 +69,10 @@ export function GameCard({ game, index }: GameCardProps) {
     >
       <Link to={`/game/${game.appId}`} className='block h-full'>
         <Card
-          className={`relative overflow-hidden ${tierStyles.cardClass} backdrop-blur-sm transition-all duration-300 rounded-2xl pt-0 h-full flex flex-col`}
+          className={`
+            relative overflow-hidden backdrop-blur-sm transition-all duration-300 rounded-2xl pt-0 h-full flex flex-col
+            bg-gradient-to-br ${config.colors.background} ${config.colors.border} hover:border-opacity-70
+          `}
         >
           <motion.div
             className='absolute top-3 right-3 z-10'
@@ -145,10 +84,8 @@ export function GameCard({ game, index }: GameCardProps) {
               stiffness: 200,
             }}
           >
-            <div
-              className={`p-2 rounded-full bg-black/30 backdrop-blur-sm border border-white/20`}
-            >
-              <TierIcon className={`w-5 h-5 ${tierStyles.iconColor}`} />
+            <div className='p-2 rounded-full bg-black/30 backdrop-blur-sm border border-white/20'>
+              <TierIcon className={`w-5 h-5 ${config.colors.text}`} />
             </div>
           </motion.div>
 
@@ -186,7 +123,7 @@ export function GameCard({ game, index }: GameCardProps) {
             <div className='space-y-2'>
               <div className='flex items-center justify-between text-sm'>
                 <span className='text-slate-300'>Achievements</span>
-                <span className={`font-medium ${tierStyles.iconColor}`}>
+                <span className={`font-medium ${config.colors.text}`}>
                   {unlocked}/{total}
                 </span>
               </div>
@@ -200,7 +137,8 @@ export function GameCard({ game, index }: GameCardProps) {
                   className='h-2'
                   style={
                     {
-                      "--progress-background": tierStyles.progressClass,
+                      "--progress-background":
+                        config.colors.gradient.split(" ")[1] || "bg-gray-500",
                     } as React.CSSProperties
                   }
                 />
@@ -229,7 +167,7 @@ export function GameCard({ game, index }: GameCardProps) {
                 >
                   <Badge
                     variant='secondary'
-                    className={`${tierStyles.badgeClass} transition-colors text-xs px-2 py-1`}
+                    className='bg-gradient-to-r from-slate-600/20 to-slate-700/20 text-slate-300 border-slate-500/30 hover:bg-slate-600/30 transition-colors text-xs px-2 py-1'
                   >
                     {genre.description}
                   </Badge>
@@ -260,7 +198,7 @@ export function GameCard({ game, index }: GameCardProps) {
           </CardContent>
 
           <motion.div
-            className={`absolute inset-0 ${tierStyles.overlayClass} opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl`}
+            className='absolute inset-0 bg-gradient-to-r from-slate-600/10 to-slate-700/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl'
             initial={false}
           />
         </Card>

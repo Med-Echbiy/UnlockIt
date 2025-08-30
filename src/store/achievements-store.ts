@@ -20,6 +20,7 @@ interface AchievementsStore {
     files: { appid: number; filePath: string }[]
   ) => void;
   getTrackedAchievementsFiles: () => { appid: number; filePath: string }[];
+  getAchievements: () => SteamSchemaResponse[];
 }
 
 const useAchievementsStore = create<AchievementsStore>((set, get) => {
@@ -116,6 +117,7 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
     getTrackedAchievementsFiles: () => {
       return get().trackAchievementsFiles;
     },
+    getAchievements: () => get().achievements,
   };
 });
 
