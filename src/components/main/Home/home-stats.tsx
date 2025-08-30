@@ -26,7 +26,7 @@ interface HomeStatsProps {
 
 export function HomeStats({ games }: HomeStatsProps) {
   const { profile } = useProfileStore();
-  const [profilePic, setProfilePic] = useState<string>("");
+  const [, setProfilePic] = useState<string>("");
   const [animatedValues, setAnimatedValues] = useState({
     totalGames: 0,
     completedGames: 0,
