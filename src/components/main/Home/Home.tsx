@@ -41,17 +41,22 @@ function Home() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const games = getGames();
+      const games = getGames() || [];
       for (const game of games) {
+        if (!game || !game.name) {
+          console.warn("Skipping invalid game object:", game);
+          continue;
+        }
         console.log("Parsing achievements for game:", game.name);
         await parseAchievements(game.appId, game.exePath);
       }
       setLoading(false);
     })();
-  }, [getGames().length]);
+  }, [(getGames() || []).length]);
   useEffect(() => {
-    const unplayedGames = getGames().filter(
-      (game) => game.status === "not-played"
+    const games = getGames() || [];
+    const unplayedGames = games.filter(
+      (game) => game && game.status === "not-played"
     );
     if (unplayedGames.length > 0) {
       const shuffled = [...unplayedGames].sort(() => Math.random() - 0.5);
@@ -59,7 +64,7 @@ function Home() {
     } else {
       setShuffledDiscoverGames([]);
     }
-  }, [getGames().length]);
+  }, [(getGames() || []).length]);
   const getGameSections = (): Array<{
     title: string;
     games: GameStoreData[];
@@ -67,9 +72,10 @@ function Home() {
     priority: "most-played" | "recently-played" | "recently-added" | "random";
     key: string;
   }> => {
+    const games = getGames() || [];
     const sections = [];
-    const currentlyPlaying = getGames().filter(
-      (game) => game.status === "playing"
+    const currentlyPlaying = games.filter(
+      (game) => game && game.status === "playing"
     );
     if (currentlyPlaying.length > 0) {
       sections.push({
@@ -80,7 +86,8 @@ function Home() {
         key: "playing",
       });
     }
-    const recentlyAdded = [...getGames()]
+    const recentlyAdded = [...games]
+      .filter((game) => game && game.appId)
       .sort((a, b) => b.appId - a.appId)
       .slice(0, 4);
     if (recentlyAdded.length > 0) {
@@ -92,8 +99,9 @@ function Home() {
         key: "recent",
       });
     }
-    const completedGames = getGames().filter(
-      (game) => game.status === "completed" || game.status === "beaten"
+    const completedGames = games.filter(
+      (game) =>
+        game && (game.status === "completed" || game.status === "beaten")
     );
     if (completedGames.length > 0) {
       sections.push({
@@ -104,8 +112,9 @@ function Home() {
         key: "completed",
       });
     }
-    const highRatedGames = getGames().filter(
+    const highRatedGames = games.filter(
       (game) =>
+        game &&
         game.my_rating &&
         game.my_rating !== "N/A" &&
         Number(game.my_rating) >= 7
@@ -133,6 +142,16 @@ function Home() {
   };
 
   const handlePlayGame = async (game: GameStoreData) => {
+    if (!game || !game.exePath || !game.name) {
+      console.error("Invalid game object passed to handlePlayGame:", game);
+      toast.error("Unable to launch game: Invalid game data", {
+        style: {
+          background: "rgb(185 28 28)",
+        },
+      });
+      return;
+    }
+
     try {
       await invoke("launch_game", { exePath: game.exePath });
       toast.success(`Launching ${game.name}...`, {
@@ -177,7 +196,7 @@ function Home() {
 
       <div className='container mx-auto px-6 py-8 space-y-12 relative z-10'>
         {/* Welcome Stats Section */}
-        <HomeStats games={getGames()} />
+        <HomeStats games={getGames() || []} />
 
         {/* Quick Actions */}
         <motion.div
@@ -195,14 +214,19 @@ function Home() {
             Add New Game
           </Button>
 
-          {getGames().length > 0 && (
+          {(getGames() || []).length > 0 && (
             <Button
               variant='outline'
               size='lg'
               onClick={() => {
+                const games = getGames() || [];
+                if (games.length === 0) return;
+
                 const randomGame =
-                  getGames()[Math.floor(Math.random() * getGames().length)];
-                handlePlayGame(randomGame);
+                  games[Math.floor(Math.random() * games.length)];
+                if (randomGame) {
+                  handlePlayGame(randomGame);
+                }
               }}
               className='border-border/50 hover:border-border transition-all duration-200'
             >
@@ -214,7 +238,7 @@ function Home() {
 
         {/* Game Sections */}
         <AnimatePresence mode='wait'>
-          {getGames().length === 0 ? (
+          {(getGames() || []).length === 0 ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -233,29 +257,34 @@ function Home() {
             </motion.div>
           ) : (
             <div className='space-y-16'>
-              {gameSections.map((section, index) => (
-                <motion.div
-                  key={section.key}
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-                  onHoverStart={() => setHoveredSection(section.key)}
-                  onHoverEnd={() => setHoveredSection(null)}
-                  className={`transition-all duration-300 ${
-                    hoveredSection && hoveredSection !== section.key
-                      ? "opacity-60"
-                      : "opacity-100"
-                  }`}
-                >
-                  <GameSection
-                    title={section.title}
-                    games={section.games}
-                    icon={section.icon}
-                    priority={section.priority}
-                    onPlay={handlePlayGame}
-                  />
-                </motion.div>
-              ))}
+              {gameSections
+                .filter(
+                  (section) =>
+                    section && section.games && section.games.length > 0
+                )
+                .map((section, index) => (
+                  <motion.div
+                    key={section.key}
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                    onHoverStart={() => setHoveredSection(section.key)}
+                    onHoverEnd={() => setHoveredSection(null)}
+                    className={`transition-all duration-300 ${
+                      hoveredSection && hoveredSection !== section.key
+                        ? "opacity-60"
+                        : "opacity-100"
+                    }`}
+                  >
+                    <GameSection
+                      title={section.title}
+                      games={section.games}
+                      icon={section.icon}
+                      priority={section.priority}
+                      onPlay={handlePlayGame}
+                    />
+                  </motion.div>
+                ))}
             </div>
           )}
         </AnimatePresence>

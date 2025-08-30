@@ -252,14 +252,57 @@ const useScoringSystemWorkflow = () => {
   const calculateGameScore = (gameId: number): GameScore | null => {
     const game = getGames().find((g) => g.appId === gameId);
     const gameAchievements = getAchievements().find((a) => a.gameId === gameId);
+    console.log(
+      "🎯 [calculateGameScore] Starting calculation for gameId:",
+      gameId,
+      "| Game found:",
+      !!game,
+      "| Game name:",
+      game?.name,
+      "| Achievement data found:",
+      !!gameAchievements
+    );
 
-    if (!game || !gameAchievements?.game?.availableGameStats?.achievements)
+    // If no game found, return null
+    if (!game) {
+      console.log("❌ [calculateGameScore] No game found for gameId:", gameId);
       return null;
+    }
+
+    // Handle games with no achievements data or empty achievements array
+    if (
+      !gameAchievements?.game?.availableGameStats?.achievements ||
+      gameAchievements.game.availableGameStats.achievements.length === 0
+    ) {
+      console.log(
+        "🎮 [calculateGameScore] Game has no achievements data, returning default score for:",
+        game.name
+      );
+      const defaultResult = {
+        gameId,
+        gameName: game.name,
+        achievements: [], // Empty array for games with no achievements
+        totalGameScore: 0,
+        completionPercentage: 0,
+        rank: "Bronze" as const, // Default rank for games with no achievements
+      };
+      console.log("🎮 [calculateGameScore] Default result:", defaultResult);
+      return defaultResult;
+    }
 
     const achievementsList =
       gameAchievements.game.availableGameStats.achievements;
     const unlockedAchievements = achievementsList.filter(
       (a) => a.achievedAt && parseInt(a.achievedAt) > 0
+    );
+
+    console.log(
+      "🏆 [calculateGameScore] Achievement analysis for",
+      game.name + ":",
+      "| Total achievements:",
+      achievementsList.length,
+      "| Unlocked achievements:",
+      unlockedAchievements.length
     );
 
     const completionPercentage =
@@ -272,7 +315,6 @@ const useScoringSystemWorkflow = () => {
       } else {
         consecutiveCount = 0;
       }
-
       const { score, breakdown, tier } = calculateAchievementScore(
         achievement,
         game.name,
@@ -289,7 +331,7 @@ const useScoringSystemWorkflow = () => {
         tier: tier as any,
       };
     });
-
+    console.log({ scoredAchievements });
     const baseGameScore = scoredAchievements.reduce(
       (sum, a) => sum + a.score,
       0
@@ -306,7 +348,7 @@ const useScoringSystemWorkflow = () => {
       return "Bronze";
     };
 
-    return {
+    const finalResult = {
       gameId,
       gameName: game.name,
       achievements: scoredAchievements,
@@ -314,13 +356,24 @@ const useScoringSystemWorkflow = () => {
       completionPercentage,
       rank: getGameRank(totalGameScore, completionPercentage),
     };
+
+    console.log("✅ [calculateGameScore] Final result for", game.name + ":", {
+      gameId: finalResult.gameId,
+      gameName: finalResult.gameName,
+      totalGameScore: finalResult.totalGameScore,
+      completionPercentage: finalResult.completionPercentage,
+      rank: finalResult.rank,
+      achievementsCount: finalResult.achievements.length,
+    });
+
+    return finalResult;
   };
 
   const calculateUserProfile = (): UserProfile => {
     const gameScores = getGames()
       .map((game) => calculateGameScore(game.appId))
       .filter(Boolean) as GameScore[];
-
+    console.log("UserProfileCard - Game Scores:", gameScores);
     const totalScore = gameScores.reduce(
       (sum, game) => sum + game.totalGameScore,
       0
@@ -383,9 +436,37 @@ const useScoringSystemWorkflow = () => {
   };
 
   const getLeaderboardData = () => {
-    return getGames()
-      .map((game) => calculateGameScore(game.appId))
-      .filter(Boolean) as GameScore[];
+    console.log(
+      "📊 [getLeaderboardData] Starting leaderboard data calculation"
+    );
+    const games = getGames();
+    console.log("📊 [getLeaderboardData] Total games in store:", games.length);
+
+    const gameScores = games.map((game) => {
+      console.log(
+        "📊 [getLeaderboardData] Processing game:",
+        game.name,
+        "| AppID:",
+        game.appId
+      );
+      const score = calculateGameScore(game.appId);
+      console.log(
+        "📊 [getLeaderboardData] Score result for",
+        game.name + ":",
+        score ? "✅ Valid" : "❌ Null"
+      );
+      return score;
+    });
+
+    const filteredScores = gameScores.filter(Boolean) as GameScore[];
+    console.log("📊 [getLeaderboardData] Final results:", {
+      totalGamesProcessed: gameScores.length,
+      validScores: filteredScores.length,
+      nullResults: gameScores.length - filteredScores.length,
+      gameNames: filteredScores.map((g) => g.gameName),
+    });
+
+    return filteredScores;
   };
 
   return {
