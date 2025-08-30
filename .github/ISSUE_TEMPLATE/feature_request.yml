@@ -1,0 +1,66 @@
+name: ✨ Feature Request
+description: Suggest an idea for UnlockIt
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please provide as much detail as possible.
+
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem Description
+      description: Is your feature request related to a problem? Please describe.
+      placeholder: A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+
+  - type: textarea
+    id: solution-description
+    attributes:
+      label: Describe the Solution You'd Like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives-considered
+    attributes:
+      label: Describe Alternatives You've Considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: Which category does this feature belong to?
+      options:
+        - Achievement Tracking
+        - Playtime Monitoring
+        - Game Library Management
+        - Statistics & Analytics
+        - User Interface
+        - Integration (Steam, etc.)
+        - Performance
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Really needed
+        - Critical - Blocking current workflow
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or mockups about the feature request here.

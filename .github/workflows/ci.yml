@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+
+jobs:
+  test-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows-latest"
+            args: "--target x86_64-pc-windows-msvc"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-20.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Rust setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "npm"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Run frontend linting
+        run: |
+          # Add linting commands when available
+          echo "Frontend linting would run here"
+
+      - name: Run frontend tests
+        run: |
+          # Add test commands when available
+          echo "Frontend tests would run here"
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Run Rust tests
+        run: |
+          cd src-tauri
+          cargo test
+
+      - name: Build Tauri app (debug)
+        run: pnpm tauri build --debug
