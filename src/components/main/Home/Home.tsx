@@ -27,7 +27,7 @@ function Home() {
     appid: 0,
     exePath: "",
   });
-  const { games } = useMyGamesStore();
+  const { getGames } = useMyGamesStore();
   const { loadProfile } = useProfileStore();
   const { getGamePath } = useAddGameWorkflow();
   const [loading, setLoading] = useState(true);
@@ -41,22 +41,25 @@ function Home() {
   useEffect(() => {
     (async () => {
       setLoading(true);
+      const games = getGames();
       for (const game of games) {
         console.log("Parsing achievements for game:", game.name);
         await parseAchievements(game.appId, game.exePath);
       }
       setLoading(false);
     })();
-  }, [games]);
+  }, [getGames().length]);
   useEffect(() => {
-    const unplayedGames = games.filter((game) => game.status === "not-played");
+    const unplayedGames = getGames().filter(
+      (game) => game.status === "not-played"
+    );
     if (unplayedGames.length > 0) {
       const shuffled = [...unplayedGames].sort(() => Math.random() - 0.5);
       setShuffledDiscoverGames(shuffled);
     } else {
       setShuffledDiscoverGames([]);
     }
-  }, [games]);
+  }, [getGames().length]);
   const getGameSections = (): Array<{
     title: string;
     games: GameStoreData[];
@@ -65,7 +68,9 @@ function Home() {
     key: string;
   }> => {
     const sections = [];
-    const currentlyPlaying = games.filter((game) => game.status === "playing");
+    const currentlyPlaying = getGames().filter(
+      (game) => game.status === "playing"
+    );
     if (currentlyPlaying.length > 0) {
       sections.push({
         title: "Continue Playing",
@@ -75,7 +80,7 @@ function Home() {
         key: "playing",
       });
     }
-    const recentlyAdded = [...games]
+    const recentlyAdded = [...getGames()]
       .sort((a, b) => b.appId - a.appId)
       .slice(0, 4);
     if (recentlyAdded.length > 0) {
@@ -87,7 +92,7 @@ function Home() {
         key: "recent",
       });
     }
-    const completedGames = games.filter(
+    const completedGames = getGames().filter(
       (game) => game.status === "completed" || game.status === "beaten"
     );
     if (completedGames.length > 0) {
@@ -99,7 +104,7 @@ function Home() {
         key: "completed",
       });
     }
-    const highRatedGames = games.filter(
+    const highRatedGames = getGames().filter(
       (game) =>
         game.my_rating &&
         game.my_rating !== "N/A" &&
@@ -172,7 +177,7 @@ function Home() {
 
       <div className='container mx-auto px-6 py-8 space-y-12 relative z-10'>
         {/* Welcome Stats Section */}
-        <HomeStats games={games} />
+        <HomeStats games={getGames()} />
 
         {/* Quick Actions */}
         <motion.div
@@ -190,13 +195,13 @@ function Home() {
             Add New Game
           </Button>
 
-          {games.length > 0 && (
+          {getGames().length > 0 && (
             <Button
               variant='outline'
               size='lg'
               onClick={() => {
                 const randomGame =
-                  games[Math.floor(Math.random() * games.length)];
+                  getGames()[Math.floor(Math.random() * getGames().length)];
                 handlePlayGame(randomGame);
               }}
               className='border-border/50 hover:border-border transition-all duration-200'
@@ -209,7 +214,7 @@ function Home() {
 
         {/* Game Sections */}
         <AnimatePresence mode='wait'>
-          {games.length === 0 ? (
+          {getGames().length === 0 ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
