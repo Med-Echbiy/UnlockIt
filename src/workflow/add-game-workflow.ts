@@ -13,6 +13,7 @@ import useAchievementsStore from "@/store/achievements-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
 import useUIStateStore from "@/store/ui-state-store";
 import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
+import useParsingWorkflow from "./parser/parse-workflow";
 
 const useAddGameWorkflow = () => {
   const { setAddGameLoading, setGameLoadingName, setAddGameLoadingProgress } =
@@ -20,7 +21,10 @@ const useAddGameWorkflow = () => {
   const { addGame } = useMyGamesStore();
   const { addAchievement } = useAchievementsStore();
   const { downloadImage } = useCacheImageWorkflow();
-
+  const { parseAchievements } = useParsingWorkflow({
+    appid: 0,
+    exePath: "",
+  });
   const { storeJson } = useStoreAchievements();
   const { getSteamApiKey } = useRequiredDataStore();
   const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
@@ -107,7 +111,8 @@ const useAddGameWorkflow = () => {
           my_rating: "N/A",
         };
         const achievements = await getGameSteamAchievementSchema(
-          String(steam_appid)
+          String(steam_appid),
+          gamePath
         );
         console.log({ name });
         await executeHowLongToBeatWorkflow(String(steam_appid), String(name));
@@ -137,7 +142,10 @@ const useAddGameWorkflow = () => {
     setGameLoadingName("");
     return false;
   }
-  async function getGameSteamAchievementSchema(app_id: string) {
+  async function getGameSteamAchievementSchema(
+    app_id: string,
+    exePath: string = ""
+  ) {
     const apiKey = getSteamApiKey();
     if (!apiKey) {
       toast.error("Please Make Sure to include You API Key", {
@@ -181,6 +189,7 @@ const useAddGameWorkflow = () => {
       await storeJson(achievementsResult, {
         fileName: `achievements_${app_id}.json`,
       });
+      await parseAchievements(Number(app_id), exePath);
       console.log({ achievementsResult });
 
       return achievementsResult;
