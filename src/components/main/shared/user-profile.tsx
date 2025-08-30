@@ -1049,21 +1049,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
                             )}
                         </div>
 
-                        {/* Carousel Indicators */}
-                        <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2'>
-                          {topGames.map((_, index) => (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentGameIndex(index)}
-                              className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                                index === currentGameIndex
-                                  ? "bg-blue-400 shadow-lg shadow-blue-400/50"
-                                  : "bg-slate-600 hover:bg-slate-500"
-                              }`}
-                            />
-                          ))}
-                        </div>
-
                         {/* Decorative Elements */}
                         <div className='absolute top-4 right-4 w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-xl' />
                         <div className='absolute bottom-4 left-4 w-10 h-10 bg-gradient-to-tr from-cyan-500/20 to-green-500/20 rounded-full blur-lg' />

@@ -74,7 +74,7 @@ function GameDetails() {
   }
 
   return (
-    <main className='w-full min-h-screen p-2'>
+    <main className='w-full min-h-screen p-2 max-w-screen-2xl mx-auto'>
       {game && (
         <Card className='grid grid-cols-1 p-3 gap-5 bg-transparent border-none  shadow-none'>
           <GameDetailsHeader id={id!} />
