@@ -2,21 +2,22 @@
 
 import type React from "react";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trophy, TrendingUp, Award, User, Gamepad2 } from "lucide-react";
+import { Trophy, Award, User, Gamepad2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import gsap from "gsap";
 import { toast } from "sonner";
 import useProfileStore from "@/store/profile-store";
 import useMyGamesStore from "@/store/my-games-store";
 import useScoringSystemWorkflow from "@/workflow/scoring-system-worfklow";
-import { TIER_CONFIGS } from "@/lib/ranking-system";
 import { useGameRanking } from "@/hooks/use-ranking";
 import { formatScore } from "@/lib/ranking-system";
+import GameCarousel from "./GameCarousel";
+import { UserProfile, GameScore } from "@/types/scoring";
 
 interface UserProfileCardProps {
   showAnimations?: boolean;
@@ -53,12 +54,14 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     current: 0,
     target: 0,
   });
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [gameScores, setGameScores] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [gameScores, setGameScores] = useState<GameScore[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
-
+  useEffect(() => {
+    console.log("games init", { gameScores, games: getGames() });
+  }, [gameScores]);
   // Load profile data and avatar
   useEffect(() => {
     const loadData = async () => {
@@ -81,14 +84,27 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
         // Calculate user profile data
         const calculatedProfile = calculateUserProfile();
-
+        console.log({ calculatedProfile });
         // Get real game scores from your scoring system
         const realGameScores = getLeaderboardData();
+        console.log("🎯 [UserProfile] Leaderboard data received:", {
+          totalScores: realGameScores.length,
+          scores: realGameScores,
+          isEmpty: realGameScores.length === 0,
+        });
 
         // Sort games by score (highest first)
         const sortedGameScores = [...realGameScores].sort(
           (a, b) => (b.totalGameScore || 0) - (a.totalGameScore || 0)
         );
+
+        console.log("🎯 [UserProfile] After sorting:", {
+          sortedCount: sortedGameScores.length,
+          topGames: sortedGameScores.slice(0, 5).map((g) => ({
+            name: g.gameName,
+            score: g.totalGameScore,
+          })),
+        });
 
         // Load images for top games
         const topGames = sortedGameScores.slice(0, 10);
@@ -118,6 +134,13 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
         setGameImages(imageMap);
         setAnimatedScore({ current: 0, target: calculatedProfile.totalScore });
         setIsLoading(false);
+
+        console.log("🎯 [UserProfile] State updated:", {
+          profileSet: !!calculatedProfile,
+          gameScoresSet: sortedGameScores.length,
+          imagesSet: Object.keys(imageMap).length,
+          loadingComplete: true,
+        });
       } catch (error) {
         console.error("Failed to load profile data:", error);
         toast.error("Failed to load profile data", {
@@ -125,13 +148,13 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
         });
 
         // Set fallback data to prevent crashes
-        const fallbackProfile = {
+        const fallbackProfile: UserProfile = {
           totalScore: 0,
           gamesPlayed: 0,
           averageCompletion: 0,
           rareAchievements: 0,
           perfectGames: 0,
-          overallRank: "Novice" as const,
+          overallRank: "Novice",
           badges: [],
         };
 
@@ -142,7 +165,7 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     };
 
     loadData();
-  }, [getProfile().avatar, getGames().length]);
+  }, []);
 
   // GSAP animations with better cleanup and error handling
   useEffect(() => {
@@ -325,23 +348,107 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     };
   }, [showAnimations]);
 
+  // Create stable identifier for games data
+  const gamesDataId = useMemo(
+    () =>
+      gameScores
+        .map((g) => `${g.gameId}-${g.gameName}`)
+        .sort()
+        .join(","),
+    [gameScores]
+  );
+
+  // Track interval
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // Auto-rotation effect for game carousel
   useEffect(() => {
-    if (gameScores.length <= 1) return;
+    // Calculate how many games are actually shown in carousel (max 8)
+    const topGamesCount = Math.min(8, gameScores.length);
 
-    const interval = setInterval(() => {
-      setCurrentGameIndex((prevIndex) =>
-        prevIndex === gameScores.length - 1 ? 0 : prevIndex + 1
-      );
+    if (topGamesCount <= 1) {
+      // Clear interval if no games or only one game
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    // Clear existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    console.log(
+      "🔄 [UserProfile] Starting auto-rotation for",
+      topGamesCount,
+      "games out of",
+      gameScores.length,
+      "total games"
+    );
+
+    // Start new interval
+    intervalRef.current = setInterval(() => {
+      setCurrentGameIndex((prevIndex) => {
+        // IMPORTANT: Only rotate through the games that are actually displayed in carousel (max 8)
+        // Not all gameScores, just the topGames slice
+        const newIndex = prevIndex >= topGamesCount - 1 ? 0 : prevIndex + 1;
+        console.log(
+          "🔄 [UserProfile] Rotating from index",
+          prevIndex,
+          "to",
+          newIndex,
+          "(max index:",
+          topGamesCount - 1,
+          ")"
+        );
+        return newIndex;
+      });
     }, 3000);
 
-    return () => clearInterval(interval);
-  }, [gameScores.length]);
+    // Cleanup on unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [gamesDataId]); // Only restart when games data actually changes
 
   const { config: rankConfig } = useGameRanking(
     userProfile?.totalScore || 0,
     userProfile?.averageCompletion || 0
   );
+
+  // Safety check for userProfile
+  if (!userProfile) {
+    return (
+      <div className='relative w-full max-w-md mx-auto'>
+        <Card className='relative bg-gradient-to-br from-gray-900/90 via-slate-800/90 to-gray-900/90 backdrop-blur-xl border border-gray-700/50 overflow-hidden'>
+          <CardContent className='relative z-10 p-6'>
+            <div className='animate-pulse space-y-4'>
+              <div className='flex items-center space-x-4'>
+                <div className='w-16 h-16 bg-gradient-to-br from-blue-500/30 to-purple-500/30 rounded-full animate-pulse'></div>
+                <div className='space-y-2 flex-1'>
+                  <div className='h-4 bg-gradient-to-r from-gray-600 to-gray-700 rounded w-3/4 animate-pulse'></div>
+                  <div className='h-4 bg-gradient-to-r from-gray-700 to-gray-600 rounded w-1/2 animate-pulse'></div>
+                </div>
+              </div>
+              <div className='space-y-2'>
+                <div className='h-4 bg-gradient-to-r from-gray-600 to-gray-700 rounded animate-pulse'></div>
+                <div className='h-2 bg-gradient-to-r from-blue-600/50 to-purple-600/50 rounded animate-pulse'></div>
+              </div>
+              <div className='grid grid-cols-2 gap-4'>
+                <div className='h-16 bg-gradient-to-br from-gray-700 to-gray-600 rounded animate-pulse'></div>
+                <div className='h-16 bg-gradient-to-br from-gray-700 to-gray-600 rounded animate-pulse'></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -875,240 +982,117 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
           </div>
 
           {/* Badges Section */}
-          {!compact && userProfile?.badges && userProfile.badges.length > 0 && (
-            <div className='space-y-2' ref={badgesRef}>
-              <h4 className='text-sm font-semibold text-foreground'>Badges</h4>
-              <div className='flex flex-wrap gap-2'>
-                {userProfile.badges.map((badge: string, index: number) => (
-                  <Badge
-                    key={index}
-                    variant='secondary'
-                    className='text-xs transition-all duration-300 hover:scale-110 hover:shadow-md hover:shadow-primary/30'
-                  >
-                    {badge}
-                  </Badge>
-                ))}
+          {!compact &&
+            userProfile?.badges &&
+            Array.isArray(userProfile.badges) &&
+            userProfile.badges.length > 0 && (
+              <div className='space-y-2' ref={badgesRef}>
+                <h4 className='text-sm font-semibold text-foreground'>
+                  Badges
+                </h4>
+                <div className='flex flex-wrap gap-2'>
+                  {userProfile.badges.map((badge: string, index: number) => (
+                    <Badge
+                      key={index}
+                      variant='secondary'
+                      className='text-xs transition-all duration-300 hover:scale-110 hover:shadow-md hover:shadow-primary/30'
+                    >
+                      {badge}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* Animated Top Games Carousel */}
-          {!compact && gameScores.length > 0 && (
-            <div className='space-y-3'>
-              <div className='flex items-center justify-between'>
-                <h4 className='text-sm font-semibold bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent flex items-center gap-2'>
-                  <Trophy className='h-4 w-4 text-yellow-400' />
-                  Top Games
-                </h4>
-                {variant === "detailed" && (
-                  <Badge
-                    variant='outline'
-                    className='text-xs bg-slate-800/50 border-slate-600/50'
-                  >
-                    {gameScores.length} games
-                  </Badge>
-                )}
-              </div>
+          {!compact &&
+            gameScores &&
+            Array.isArray(gameScores) &&
+            gameScores.length > 0 && (
+              <div className='space-y-3'>
+                <div className='flex items-center justify-between'>
+                  <h4 className='text-sm font-semibold bg-gradient-to-r from-blue-200 to-cyan-200 bg-clip-text text-transparent flex items-center gap-2'>
+                    <Trophy className='h-4 w-4 text-yellow-400' />
+                    Top Games
+                  </h4>
+                  {variant === "detailed" && (
+                    <Badge
+                      variant='outline'
+                      className='text-xs bg-slate-800/50 border-slate-600/50'
+                    >
+                      {gameScores.length} games
+                    </Badge>
+                  )}
+                </div>
 
-              {/* Single Game Carousel */}
-              <div className='h-[300px] relative'>
-                <AnimatePresence mode='wait'>
-                  {(() => {
-                    const topGames = gameScores.slice(
-                      0,
-                      Math.min(8, gameScores.length)
-                    );
-                    const currentGame = topGames[currentGameIndex];
-                    const gameData = getGames().find(
-                      (g) => g.name === currentGame.gameName
-                    );
-                    const gameImage =
-                      gameImages[currentGame.gameName] ||
-                      gameData?.header_image ||
-                      gameData?.capsule_image;
+                {/* Single Game Carousel */}
+                <div className='h-[300px] relative'>
+                  <AnimatePresence mode='wait'>
+                    <GameCarousel
+                      gameScores={gameScores}
+                      currentGameIndex={currentGameIndex}
+                      gameImages={gameImages}
+                      getGames={getGames}
+                      variant={variant}
+                    />
+                  </AnimatePresence>
+                </div>
 
-                    return (
-                      <motion.div
-                        key={`${currentGame.gameId}-${currentGameIndex}`}
-                        initial={{ opacity: 0, x: 300, scale: 0.9 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -300, scale: 0.9 }}
-                        transition={{
-                          duration: 0.5,
-                          ease: "easeInOut",
-                        }}
-                        className='absolute inset-0 overflow-hidden rounded-xl bg-gradient-to-br from-slate-800/90 to-slate-700/90 backdrop-blur-sm border border-slate-600/30 group'
-                      >
-                        {/* Game Background Image */}
-                        {gameImage && (
-                          <div className='absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-500'>
-                            <img
-                              src={gameImage}
-                              alt={currentGame.gameName}
-                              className='w-full h-full object-cover'
-                            />
-                            <div className='absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-800/80 to-slate-700/60' />
-                          </div>
-                        )}
+                {/* Static View for Minimal Variant */}
+                {variant !== "detailed" && variant !== "default" && (
+                  <div className='space-y-2 max-h-[200px] overflow-y-auto'>
+                    {gameScores
+                      .slice(0, 5)
+                      .map((game: GameScore, index: number) => {
+                        const gameImage = gameImages[game.gameName];
 
-                        <div className='relative z-10 p-6 h-full flex flex-col justify-between'>
-                          {/* Header with Rank */}
-                          <div className='flex items-start justify-between mb-4'>
-                            <div
-                              className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-lg ${
-                                currentGameIndex === 0
-                                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-yellow-500/50"
-                                  : currentGameIndex === 1
-                                  ? "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800 shadow-gray-400/50"
-                                  : currentGameIndex === 2
-                                  ? "bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-amber-600/50"
-                                  : "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-blue-500/50"
-                              }`}
-                            >
-                              #{currentGameIndex + 1}
-                            </div>
-
-                            <div className='flex items-center justify-center'>
-                              {(() => {
-                                const tierConfig =
-                                  TIER_CONFIGS[
-                                    currentGame.rank as keyof typeof TIER_CONFIGS
-                                  ];
-                                if (tierConfig) {
-                                  const IconComponent = tierConfig.icon;
-                                  return (
-                                    <IconComponent
-                                      className={`w-4 h-4 ${tierConfig.colors.text}`}
-                                    />
-                                  );
-                                }
-                                return (
-                                  <Trophy className='w-4 h-4 text-gray-400' />
-                                );
-                              })()}
-                            </div>
-                          </div>
-
-                          {/* Game Info */}
-                          <div className='flex-1 flex flex-col justify-center text-center'>
-                            <h5 className='text-2xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent mb-4 leading-tight'>
-                              {currentGame.gameName}
-                            </h5>
-
-                            <div className='space-y-3'>
-                              {/* Score */}
-                              <div className='flex items-center justify-center gap-3'>
-                                <TrendingUp className='h-5 w-5 text-green-400' />
-                                <span className='text-3xl font-bold font-mono bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent'>
-                                  {formatScore(
-                                    Math.round(currentGame.totalGameScore || 0)
-                                  )}
-                                </span>
-                                <span className='text-lg text-slate-400'>
-                                  pts
-                                </span>
-                              </div>
-
-                              {/* Additional Info */}
-                              {variant === "detailed" && (
-                                <div className='text-sm text-slate-400 space-y-2'>
-                                  <div>
-                                    {currentGame.completionPercentage?.toFixed(
-                                      1
-                                    ) || 0}
-                                    % completed
-                                  </div>
-                                  <div>
-                                    {currentGame.achievements?.length || 0}{" "}
-                                    achievements
-                                  </div>
-                                  <Badge
-                                    variant='outline'
-                                    className='text-sm border-slate-600/50 bg-slate-800/50'
-                                  >
-                                    {currentGame.rank} rank
-                                  </Badge>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Progress Bar */}
-                          {variant === "detailed" &&
-                            currentGame.completionPercentage > 0 && (
-                              <div className='mt-4 w-full h-3 bg-slate-700/50 rounded-full overflow-hidden'>
-                                <motion.div
-                                  initial={{ width: 0 }}
-                                  animate={{
-                                    width: `${currentGame.completionPercentage}%`,
-                                  }}
-                                  transition={{ duration: 1, delay: 0.3 }}
-                                  className='h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full'
+                        return (
+                          <div
+                            key={`${game.gameId}-${index}`}
+                            className='flex items-center space-x-3 p-2 rounded-lg bg-slate-800/40 border border-slate-600/30 hover:border-blue-500/50 transition-all duration-300'
+                          >
+                            {/* Game Image */}
+                            {gameImage && (
+                              <div className='flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-slate-600/50'>
+                                <img
+                                  src={gameImage}
+                                  alt={game.gameName}
+                                  className='w-full h-full object-cover'
                                 />
                               </div>
                             )}
-                        </div>
 
-                        {/* Decorative Elements */}
-                        <div className='absolute top-4 right-4 w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full blur-xl' />
-                        <div className='absolute bottom-4 left-4 w-10 h-10 bg-gradient-to-tr from-cyan-500/20 to-green-500/20 rounded-full blur-lg' />
-                      </motion.div>
-                    );
-                  })()}
-                </AnimatePresence>
-              </div>
+                            {/* Rank */}
+                            <div
+                              className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                index < 3
+                                  ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
+                                  : "bg-slate-700 text-slate-300"
+                              }`}
+                            >
+                              {index + 1}
+                            </div>
 
-              {/* Static View for Minimal Variant */}
-              {variant !== "detailed" && variant !== "default" && (
-                <div className='space-y-2 max-h-[200px] overflow-y-auto'>
-                  {gameScores.slice(0, 5).map((game: any, index: number) => {
-                    const gameImage = gameImages[game.gameName];
+                            {/* Game Name */}
+                            <div className='flex-1 min-w-0'>
+                              <span className='text-sm text-slate-200 truncate block'>
+                                {game.gameName}
+                              </span>
+                            </div>
 
-                    return (
-                      <div
-                        key={`${game.gameId}-${index}`}
-                        className='flex items-center space-x-3 p-2 rounded-lg bg-slate-800/40 border border-slate-600/30 hover:border-blue-500/50 transition-all duration-300'
-                      >
-                        {/* Game Image */}
-                        {gameImage && (
-                          <div className='flex-shrink-0 w-8 h-8 rounded overflow-hidden border border-slate-600/50'>
-                            <img
-                              src={gameImage}
-                              alt={game.gameName}
-                              className='w-full h-full object-cover'
-                            />
+                            {/* Score */}
+                            <div className='flex-shrink-0 text-sm font-mono font-bold text-green-400'>
+                              {formatScore(
+                                Math.round(game.totalGameScore || 0)
+                              )}
+                            </div>
                           </div>
-                        )}
-
-                        {/* Rank */}
-                        <div
-                          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                            index < 3
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
-                              : "bg-slate-700 text-slate-300"
-                          }`}
-                        >
-                          {index + 1}
-                        </div>
-
-                        {/* Game Name */}
-                        <div className='flex-1 min-w-0'>
-                          <span className='text-sm text-slate-200 truncate block'>
-                            {game.gameName}
-                          </span>
-                        </div>
-
-                        {/* Score */}
-                        <div className='flex-shrink-0 text-sm font-mono font-bold text-green-400'>
-                          {formatScore(Math.round(game.totalGameScore || 0))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
 
           {/* Enhanced Action Button */}
           <motion.div

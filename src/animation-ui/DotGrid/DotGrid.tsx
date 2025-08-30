@@ -5,9 +5,12 @@ import { InertiaPlugin } from "gsap/InertiaPlugin";
 
 gsap.registerPlugin(InertiaPlugin);
 
-const throttle = (func: (...args: any[]) => void, limit: number) => {
+const throttle = <T extends unknown[]>(
+  func: (...args: T) => void,
+  limit: number
+) => {
   let lastCall = 0;
-  return function (this: any, ...args: any[]) {
+  return function (this: unknown, ...args: T) {
     const now = performance.now();
     if (now - lastCall >= limit) {
       lastCall = now;
@@ -291,10 +294,10 @@ const DotGrid: React.FC<DotGridProps> = ({
       className={`p-4 flex items-center justify-center h-full w-full relative ${className}`}
       style={style}
     >
-      <div ref={wrapperRef} className="w-full h-full relative">
+      <div ref={wrapperRef} className='w-full h-full relative'>
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className='absolute inset-0 w-full h-full pointer-events-none'
         />
       </div>
     </section>

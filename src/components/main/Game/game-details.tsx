@@ -64,6 +64,7 @@ import { formatPlayTime } from "@/lib/howLongToBeatHelper";
 import { SystemScoreAchievement } from "./system-score-achievement";
 import { getTierByPercentage, TIER_CONFIGS } from "@/lib/ranking-system";
 import type { AchievementTier } from "@/lib/ranking-system";
+import { GameScore } from "@/types/scoring";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -94,7 +95,7 @@ export default GameDetails;
 
 function SystemScoreSection({ game }: { game: GameStoreData }) {
   const { calculateGameScore } = useScoringSystemWorkflow();
-  const [gameScore, setGameScore] = useState<any>(null);
+  const [gameScore, setGameScore] = useState<GameScore | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Get achievements from store
@@ -290,7 +291,7 @@ function SystemScoreSection({ game }: { game: GameStoreData }) {
             <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'>
               {gameScore.achievements
                 .slice(0, 6)
-                .map((achievement: any, index: number) => (
+                .map((achievement, index: number) => (
                   <SystemScoreAchievement
                     key={index}
                     achievement={achievement}
