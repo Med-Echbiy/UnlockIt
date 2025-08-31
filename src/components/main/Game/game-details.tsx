@@ -70,6 +70,25 @@ function GameDetails() {
   const { id } = useParams<{ id: string }>();
   const game = useMyGamesStore((state) => state.getGameById(id as string));
 
+  // Dialog state for HowLongToBeat search
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleFetchHowLongToBeat = async (gameName: string) => {
+    setIsLoading(true);
+    setIsDialogOpen(false);
+    try {
+      await executeHowLongToBeatWorkflow(String(game?.appId), gameName);
+    } catch (error) {
+      console.error("Error fetching HowLongToBeat data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!game) {
     return <></>;
   }
@@ -77,20 +96,69 @@ function GameDetails() {
   return (
     <main className='w-full min-h-screen p-2 max-w-screen-2xl mx-auto'>
       {game && (
-        <Card className='grid grid-cols-1 p-3 gap-5 bg-transparent border-none  shadow-none'>
-          <GameDetailsHeader id={id!} />
-          <Separator />
-          <SystemScoreSection game={game} />
-          <Separator />
-          <HowLongToBeatHeader game={game} />
-          <Separator />
-          <GameDetailsAchievements game={game} />
-        </Card>
+        <>
+          <Card className='grid grid-cols-1 p-3 gap-5 bg-transparent border-none  shadow-none'>
+            <GameDetailsHeader id={id!} />
+            <Separator />
+            <SystemScoreSection game={game} />
+            <Separator />
+            <HowLongToBeatHeader
+              game={game}
+              onOpenDialog={() => {
+                setSearchQuery(game.name);
+                setIsDialogOpen(true);
+              }}
+            />
+            <Separator />
+            <GameDetailsAchievements game={game} />
+          </Card>
+        </>
+      )}
+
+      {/* Simple modal overlay */}
+      {isDialogOpen && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+          onClick={() => setIsDialogOpen(false)}
+        >
+          <div
+            className='bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className='text-lg font-semibold mb-4'>Search HowLongToBeat</h3>
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='Enter game name...'
+              className='w-full mb-4'
+              autoFocus
+            />
+            <div className='flex gap-2'>
+              <Button
+                variant='outline'
+                onClick={() => setIsDialogOpen(false)}
+                className='flex-1'
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (searchQuery.trim()) {
+                    handleFetchHowLongToBeat(searchQuery.trim());
+                  }
+                }}
+                disabled={!searchQuery.trim() || isLoading}
+                className='bg-blue-600 hover:bg-blue-700 flex-1'
+              >
+                Search
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );
 }
-
 export default GameDetails;
 
 function SystemScoreSection({ game }: { game: GameStoreData }) {
@@ -999,13 +1067,26 @@ function GameRatingInput({
   );
 }
 
-function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
+function HowLongToBeatHeader({
+  game,
+  onOpenDialog,
+}: {
+  game: GameStoreData;
+  onOpenDialog: () => void;
+}) {
   const { executeHowLongToBeatWorkflow, getSessionData, clearStoredGameData } =
     useHowLongToBeatWorkflow();
 
   const [howLongToBeatData, setHowLongToBeatData] =
     useState<HowLongToBeatGame | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(game.name);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Dialog state changed:", isDialogOpen);
+  }, [isDialogOpen]);
 
   useEffect(() => {
     const existingData = getSessionData(String(game.appId));
@@ -1014,12 +1095,17 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
     }
   }, [game.appId, getSessionData]);
 
-  const handleFetchHowLongToBeat = async () => {
+  useEffect(() => {
+    setSearchQuery(game.name);
+  }, [game.name]);
+
+  const handleFetchHowLongToBeat = async (gameName: string) => {
     setIsLoading(true);
+    setIsDialogOpen(false);
     try {
       const selectedGame = await executeHowLongToBeatWorkflow(
         String(game.appId),
-        game.name
+        gameName
       );
       if (selectedGame) {
         setHowLongToBeatData(selectedGame);
@@ -1034,6 +1120,17 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
   const handleClearData = async () => {
     await clearStoredGameData(String(game.appId));
     setHowLongToBeatData(null);
+  };
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      handleFetchHowLongToBeat(searchQuery.trim());
+    }
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+    setSearchQuery(game.name); // Reset to original game name
   };
 
   const getCompletionData = () => [
@@ -1071,6 +1168,85 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
     },
   ];
 
+  const SearchDialog = () => {
+    console.log("SearchDialog render, isDialogOpen:", isDialogOpen);
+
+    if (!isDialogOpen) return null;
+
+    return (
+      <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+        <div className='bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4'>
+          <div className='flex items-center gap-2 mb-4'>
+            <Search className='w-5 h-5' />
+            <h3 className='text-lg font-semibold'>Search HowLongToBeat</h3>
+          </div>
+          <p className='text-sm text-gray-600 dark:text-gray-400 mb-4'>
+            Enter the game name to search for completion time data. You can
+            modify the name if needed for better search results.
+          </p>
+
+          <div className='space-y-4'>
+            <div>
+              <label className='text-sm font-medium mb-2 block'>
+                Game Name
+              </label>
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder='Enter game name...'
+                className='w-full'
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && searchQuery.trim()) {
+                    handleSearch();
+                  }
+                }}
+                autoFocus
+              />
+              <p className='text-xs text-gray-500 mt-1'>
+                Tip: Try removing subtitles or year suffixes for better results
+              </p>
+            </div>
+          </div>
+
+          <div className='flex gap-2 mt-6'>
+            <Button
+              variant='outline'
+              onClick={handleDialogClose}
+              className='flex-1'
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSearch}
+              disabled={!searchQuery.trim() || isLoading}
+              className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex-1'
+            >
+              {isLoading ? (
+                <>
+                  <motion.div
+                    className='w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2'
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Search className='w-4 h-4 mr-2' />
+                  Search
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!howLongToBeatData) {
     return (
       <Card className='w-full'>
@@ -1088,8 +1264,10 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
               </div>
             </div>
             <Button
-              onClick={handleFetchHowLongToBeat}
-              disabled={isLoading}
+              onClick={() => {
+                console.log("Button clicked, opening dialog");
+                onOpenDialog();
+              }}
               className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
             >
               {isLoading ? (
@@ -1121,110 +1299,114 @@ function HowLongToBeatHeader({ game }: { game: GameStoreData }) {
   const completionData = getCompletionData();
 
   return (
-    <Card className='w-full'>
-      <CardHeader>
-        <div className='flex items-center justify-between mb-4'>
-          <div className='flex items-center gap-3'>
-            <div className='w-10 h-10 bg-black rounded-lg flex items-center justify-center'>
-              <img src='/hltb_brand.webp' alt='' />
+    <>
+      <Card className='w-full'>
+        <CardHeader>
+          <div className='flex items-center justify-between mb-4'>
+            <div className='flex items-center gap-3'>
+              <div className='w-10 h-10 bg-black rounded-lg flex items-center justify-center'>
+                <img src='/hltb_brand.webp' alt='' />
+              </div>
+              <div>
+                <CardTitle className='text-xl'>HowLongToBeat</CardTitle>
+                <CardDescription>
+                  Completion times for {howLongToBeatData.game_name}
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className='text-xl'>HowLongToBeat</CardTitle>
-              <CardDescription>
-                Completion times for {howLongToBeatData.game_name}
-              </CardDescription>
-            </div>
-          </div>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleFetchHowLongToBeat}
-              disabled={isLoading}
-            >
-              <RotateCcw className='w-4 h-4 mr-2' />
-              Update
-            </Button>
-            <Button variant='outline' size='sm' onClick={handleClearData}>
-              <X className='w-4 h-4 mr-2' />
-              Clear
-            </Button>
-            <Button variant='ghost' size='sm' asChild>
-              <a
-                href={`https://howlongtobeat.com/game/${howLongToBeatData.game_id}`}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='flex items-center gap-1'
+            <div className='flex gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => {
+                  console.log("Update button clicked, opening dialog");
+                  onOpenDialog();
+                }}
               >
-                <ExternalLink className='w-4 h-4' />
-                HLTB
-              </a>
-            </Button>
-          </div>
-        </div>
-
-        <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
-          {completionData.map((item, index) => {
-            const Icon = item.icon;
-            return (
-              <motion.div
-                key={item.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`${item.bgColor} rounded-lg p-4 text-center border`}
-              >
-                <div
-                  className={`flex items-center justify-center gap-1 text-sm font-medium mb-2 ${item.color}`}
+                <RotateCcw className='w-4 h-4 mr-2' />
+                Update
+              </Button>
+              <Button variant='outline' size='sm' onClick={handleClearData}>
+                <X className='w-4 h-4 mr-2' />
+                Clear
+              </Button>
+              <Button variant='ghost' size='sm' asChild>
+                <a
+                  href={`https://howlongtobeat.com/game/${howLongToBeatData.game_id}`}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='flex items-center gap-1'
                 >
-                  <Icon className='w-4 h-4' />
-                  {item.label}
-                </div>
-                <div className='text-2xl font-bold text-foreground mb-1'>
-                  {formatPlayTime(item.time)}
-                </div>
-                {item.count > 0 && (
-                  <div className='flex items-center justify-center gap-1 text-xs text-muted-foreground'>
-                    <Users className='w-3 h-3' />
-                    {item.count.toLocaleString()} players
-                  </div>
-                )}
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {howLongToBeatData.profile_dev && (
-          <div className='flex flex-wrap items-center gap-2 mt-4 pt-4 border-t'>
-            <Badge variant='outline' className='text-xs'>
-              {howLongToBeatData.game_type}
-            </Badge>
-            <span className='text-sm text-muted-foreground'>
-              by {howLongToBeatData.profile_dev}
-            </span>
-            {howLongToBeatData.profile_platform && (
-              <Badge variant='secondary' className='text-xs'>
-                <Gamepad2 className='w-3 h-3 mr-1' />
-                {howLongToBeatData.profile_platform}
-              </Badge>
-            )}
-            {howLongToBeatData.release_world > 0 && (
-              <div className='flex items-center gap-1 text-sm text-muted-foreground'>
-                <Calendar className='w-3 h-3' />
-                <span>{howLongToBeatData.release_world}</span>
-              </div>
-            )}
-            {howLongToBeatData.review_score > 0 && (
-              <div className='flex items-center gap-1 text-sm'>
-                <Star className='w-3 h-3 fill-amber-400 text-amber-400' />
-                <span className='font-medium'>
-                  {howLongToBeatData.review_score}/10
-                </span>
-              </div>
-            )}
+                  <ExternalLink className='w-4 h-4' />
+                  HLTB
+                </a>
+              </Button>
+            </div>
           </div>
-        )}
-      </CardHeader>
-    </Card>
+
+          <div className='grid grid-cols-2 lg:grid-cols-4 gap-4'>
+            {completionData.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`${item.bgColor} rounded-lg p-4 text-center border`}
+                >
+                  <div
+                    className={`flex items-center justify-center gap-1 text-sm font-medium mb-2 ${item.color}`}
+                  >
+                    <Icon className='w-4 h-4' />
+                    {item.label}
+                  </div>
+                  <div className='text-2xl font-bold text-foreground mb-1'>
+                    {formatPlayTime(item.time)}
+                  </div>
+                  {item.count > 0 && (
+                    <div className='flex items-center justify-center gap-1 text-xs text-muted-foreground'>
+                      <Users className='w-3 h-3' />
+                      {item.count.toLocaleString()} players
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {howLongToBeatData.profile_dev && (
+            <div className='flex flex-wrap items-center gap-2 mt-4 pt-4 border-t'>
+              <Badge variant='outline' className='text-xs'>
+                {howLongToBeatData.game_type}
+              </Badge>
+              <span className='text-sm text-muted-foreground'>
+                by {howLongToBeatData.profile_dev}
+              </span>
+              {howLongToBeatData.profile_platform && (
+                <Badge variant='secondary' className='text-xs'>
+                  <Gamepad2 className='w-3 h-3 mr-1' />
+                  {howLongToBeatData.profile_platform}
+                </Badge>
+              )}
+              {howLongToBeatData.release_world > 0 && (
+                <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                  <Calendar className='w-3 h-3' />
+                  <span>{howLongToBeatData.release_world}</span>
+                </div>
+              )}
+              {howLongToBeatData.review_score > 0 && (
+                <div className='flex items-center gap-1 text-sm'>
+                  <Star className='w-3 h-3 fill-amber-400 text-amber-400' />
+                  <span className='font-medium'>
+                    {howLongToBeatData.review_score}/10
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardHeader>
+      </Card>
+    </>
   );
 }

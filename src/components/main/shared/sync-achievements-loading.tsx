@@ -65,6 +65,20 @@ export function SyncAchievementsLoading({
     };
   }, [isVisible, onComplete, startTime]);
 
+  // Disable scrolling when loader is active
+  useEffect(() => {
+    if (isVisible) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isVisible]);
+
   return (
     <AnimatePresence>
       {isVisible && (
