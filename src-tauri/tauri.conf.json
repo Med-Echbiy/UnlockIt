@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": ["msi"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -58,5 +59,15 @@
     "license": "MIT",
     "externalBin": [],
     "resources": ["resources/*"]
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/Med-Echbiy/UnlockIt/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZBMUEwNUI1QTRGMzdGOUUKUldTZWYvT2t0UVVhYXFhWHhmRnRlMlBmMEpLQUROalRBMjdJTzN6MXBYWnJ0VGFWTXQrREJXVS8K"
+    }
   }
 }

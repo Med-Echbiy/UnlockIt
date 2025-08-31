@@ -16,6 +16,7 @@ import CheckConnection from "./components/main/shared/check-connection";
 import useTrackingWorkflow from "./workflow/tracking-workflow";
 import { useEffect } from "react";
 import { ScrollToTopWrapper } from "./components/main/shared/ScrollToTop";
+import { checkForAppUpdates } from "./lib/updater";
 
 function App() {
   const { open } = settingsModalStore();
@@ -26,6 +27,13 @@ function App() {
 
   useEffect(() => {
     loadProfile();
+
+    // Check for updates on startup (silently)
+    setTimeout(() => {
+      checkForAppUpdates().catch((error) => {
+        console.log("Background update check failed:", error);
+      });
+    }, 3000); // Wait 3 seconds after startup
   }, [loadProfile]);
 
   return (

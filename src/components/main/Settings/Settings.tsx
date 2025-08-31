@@ -1,7 +1,15 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeClosed, User, Volume2, Camera, Play } from "lucide-react";
+import {
+  Eye,
+  EyeClosed,
+  User,
+  Volume2,
+  Camera,
+  Play,
+  Download,
+} from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -16,11 +24,13 @@ import useProfileStore from "@/store/profile-store";
 import gsap from "gsap";
 import { toast } from "sonner";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { checkForUpdatesManually } from "@/lib/updater";
 
 function SettingsDialog() {
   const [showToken, setShowToken] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
   const [tempName, setTempName] = useState("");
   const dialogRef = useRef<HTMLDivElement>(null);
   const { open, toggle } = settingsModalStore();
@@ -300,6 +310,26 @@ function SettingsDialog() {
                   onClick={() => setShowToken(false)}
                 />
               )}
+              <Button
+                onClick={async () => {
+                  setIsCheckingUpdates(true);
+                  try {
+                    await checkForUpdatesManually();
+                    toast.success("Update check completed!");
+                  } catch (error) {
+                    console.error("Update check failed:", error);
+                    toast.error("Failed to check for updates");
+                  } finally {
+                    setIsCheckingUpdates(false);
+                  }
+                }}
+                disabled={isCheckingUpdates}
+                variant='outline'
+                className='mt-2'
+              >
+                <Download className='w-4 h-4 mr-2' />
+                {isCheckingUpdates ? "Checking..." : "Check for Updates"}
+              </Button>
               <Button
                 onClick={fetchSubnauticaAchievements}
                 disabled={isLoading || !apiKey.trim()}
