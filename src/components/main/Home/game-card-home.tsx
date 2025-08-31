@@ -2,10 +2,11 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GameStoreData } from "@/types/Game";
-import { Star, Calendar, Play } from "lucide-react";
+import { Star, Calendar, Play, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Link } from "react-router-dom";
 
 interface GameCardProps {
   game: GameStoreData;
@@ -121,13 +122,26 @@ export function GameCard({ game, onPlay, priority }: GameCardProps) {
 
           <div className='flex items-center gap-2 pt-2'>
             <Button
-              onClick={() => onPlay?.(game)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlay?.(game);
+              }}
               size='sm'
               className='flex-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hover:border-primary/30 transition-all duration-200'
             >
               <Play className='h-3 w-3 mr-1' />
               Play
             </Button>
+            <Link to={`/game/${game.appId}`}>
+              <Button
+                size='sm'
+                variant='outline'
+                className='border-border/50 hover:border-border transition-all duration-200'
+              >
+                <Eye className='h-3 w-3 mr-1' />
+                View
+              </Button>
+            </Link>
             {game.my_rating && game.my_rating !== "N/A" && (
               <div className='flex items-center gap-1 text-xs text-muted-foreground'>
                 <Star className='h-3 w-3 fill-current text-yellow-500' />

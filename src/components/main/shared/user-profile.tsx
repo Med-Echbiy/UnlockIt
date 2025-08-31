@@ -6,7 +6,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Trophy, Award, User, Gamepad2 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import gsap from "gsap";
@@ -1093,41 +1092,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
                 )}
               </div>
             )}
-
-          {/* Enhanced Action Button */}
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Button
-              className='w-full mt-6 h-12 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-500 hover:via-purple-500 hover:to-cyan-500 border-0 text-white font-semibold text-sm uppercase tracking-wider transition-all duration-500 relative overflow-hidden group'
-              onClick={(e) => {
-                e.stopPropagation();
-                toast.success("Profile updated!", {
-                  style: { background: "rgb(21 128 61)" },
-                });
-              }}
-            >
-              {/* Button shimmer effect */}
-              <div className='absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 group-hover:translate-x-full transition-transform duration-1000' />
-
-              {/* Button content */}
-              <div className='relative z-10 flex items-center justify-center gap-2'>
-                <User className='h-4 w-4 transition-all duration-300 group-hover:rotate-12' />
-                View Full Profile
-                <motion.div
-                  animate={{ x: [0, 4, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  →
-                </motion.div>
-              </div>
-
-              {/* Button glow */}
-              <div className='absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 blur-md opacity-50 group-hover:opacity-70 transition-opacity duration-500' />
-            </Button>
-          </motion.div>
         </CardContent>
       </Card>
     </div>

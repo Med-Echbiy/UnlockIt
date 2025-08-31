@@ -1437,51 +1437,81 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(ProcessManager::new())
         .setup(|app| {
+            use tauri::tray::TrayIconEvent;
             use tauri::menu::{Menu, MenuItem};
-            use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+            
+            println!("Setting up application with built-in tray...");
+            
+            // Create tray menu
             let show_item = MenuItem::with_id(app, "show", "Show UnlockIt", true, None::<&str>)?;
             let hide_item = MenuItem::with_id(app, "hide", "Hide UnlockIt", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             
             let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
-            let _tray = TrayIconBuilder::with_id("main-tray")
-                .menu(&menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event(move |app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+            
+            // Set up tray icon if it exists (using built-in tray from config)
+            if let Some(tray) = app.tray_by_id("main") {
+                tray.set_menu(Some(menu))?;
+                
+                tray.on_menu_event(move |app, event| {
+                    println!("Tray menu event: {:?}", event.id);
+                    match event.id.as_ref() {
+                        "show" => {
+                            println!("Show window requested from tray");
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                                let _ = window.unminimize();
+                            }
                         }
-                    }
-                    "hide" => {
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.hide();
+                        "hide" => {
+                            println!("Hide window requested from tray");
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.hide();
+                            }
                         }
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = if window.is_visible().unwrap_or(false) {
-                                window.hide()
-                            } else {
-                                window.show().and_then(|_| window.set_focus())
-                            };
+                        "quit" => {
+                            println!("Quit requested from tray");
+                            app.exit(0);
                         }
+                        _ => {}
                     }
-                })
-                .build(app)?;
+                });
+                
+                tray.on_tray_icon_event(|tray, event| {
+                    println!("Tray icon event: {:?}", event);
+                    match event {
+                        TrayIconEvent::Click { 
+                            button: tauri::tray::MouseButton::Left, 
+                            button_state: tauri::tray::MouseButtonState::Up, 
+                            .. 
+                        } => {
+                            println!("Left click on tray icon");
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                match window.is_visible() {
+                                    Ok(true) => {
+                                        println!("Window is visible, hiding...");
+                                        let _ = window.hide();
+                                    }
+                                    _ => {
+                                        println!("Window is hidden, showing...");
+                                        let _ = window.show();
+                                        let _ = window.set_focus();
+                                        let _ = window.unminimize();
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                });
+                
+                println!("Built-in tray icon configured successfully!");
+            } else {
+                println!("Warning: No tray icon found with ID 'main'");
+            }
+            
             if let Some(window) = app.get_webview_window("main") {
                 let app_handle = app.handle().clone();
                 
