@@ -110,6 +110,20 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
       }, 1000);
     }
   }, [addGameLoadingProgress, onComplete]);
+
+  // Disable scrolling when loader is active
+  useEffect(() => {
+    if (isAddGameLoading) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isAddGameLoading]);
   const stepIndex = Math.min(
     Math.floor((addGameLoadingProgress / 100) * loadingSteps.length),
     loadingSteps.length - 1
@@ -121,7 +135,7 @@ export function GamingLoader({ onComplete }: GamingLoaderProps) {
       {isAddGameLoading ? (
         <div
           ref={containerRef}
-          className='fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50'
+          className='fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 h-screen'
         >
           <Card className='relative p-8 bg-gradient-to-br from-slate-900 via-blue-900/20 to-purple-900/20 border-blue-500/30 shadow-2xl max-w-md w-full mx-4'>
             {/* Animated background orbs */}

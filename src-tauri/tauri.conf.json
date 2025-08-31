@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "UnlockIt",
+  "productName": "UnlockIt - Ultimate Achievement Tracker",
   "version": "1.0.0",
-  "identifier": "UnlockIt",
+  "identifier": "com.mohamed-echbiy.unlockit",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -40,15 +40,22 @@
     ],
     "windows": {
       "wix": {
-        "language": ["en-US"],
-        "enableElevatedUpdateTask": true
+        "language": "en-US",
+        "fragmentPaths": ["./fragments.wxs"],
+        "componentRefs": ["AppDataPreservationMarker"],
+        "bannerPath": null,
+        "dialogImagePath": null,
+        "enableElevatedUpdateTask": false,
+        "version": "1.0.0.0"
       }
     },
     "publisher": "Mohamed Echbiy",
-    "copyright": "Copyright (c) 2025 Mohamed Echbiy. All rights reserved.",
+    "copyright": "Copyright © 2025 Mohamed Echbiy. All rights reserved.",
     "category": "Game",
     "shortDescription": "Ultimate Achievement Tracker for Gamers",
     "longDescription": "UnlockIt is the ultimate achievement tracking application for gamers. Track your progress across all your favorite games, unlock achievements, monitor playtime, and enhance your gaming experience with detailed statistics and insights.",
+    "homepage": "https://github.com/Med-Echbiy/UnlockIt",
+    "license": "MIT",
     "externalBin": [],
     "resources": ["resources/*"]
   }

@@ -3,11 +3,11 @@
     <Product Id="*" 
              Name="UnlockIt - Ultimate Achievement Tracker" 
              Language="1033" 
-             Version="{{version}}" 
+             Version="$(var.Version)" 
              Manufacturer="Mohamed Echbiy" 
-             UpgradeCode="{{upgrade_code}}">
+             UpgradeCode="$(var.UpgradeCode)">
         
-        <Package InstallerVersion="200" 
+        <Package InstallerVersion="500" 
                  Compressed="yes" 
                  Comments="UnlockIt Installer Package"
                  Description="Ultimate Achievement Tracker for Gamers"
@@ -25,9 +25,6 @@
         <!-- Media and Cabinet Configuration -->
         <MediaTemplate EmbedCab="yes" />
 
-        <!-- Custom Actions -->
-        <Binary Id="UnlockItCA" SourceFile="UnlockItCustomActions.dll" />
-        
         <!-- Properties -->
         <Property Id="ARPPRODUCTICON" Value="UnlockItIcon.exe" />
         <Property Id="ARPURLINFOABOUT" Value="https://github.com/Med-Echbiy/UnlockIt" />
@@ -36,31 +33,23 @@
         <Property Id="ARPNOREPAIR" Value="1" />
         <Property Id="ARPHELPLINK" Value="https://github.com/Med-Echbiy/UnlockIt/issues" />
         <Property Id="ARPCONTACT" Value="Mohamed Echbiy" />
-        <Property Id="ARPSIZE" Value="{{estimated_size}}" />
-
-        <!-- Launch Application Option -->
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch UnlockIt" />
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
 
         <!-- Directory Structure -->
         <Directory Id="TARGETDIR" Name="SourceDir">
-            <Directory Id="{{program_files}}" Name="PFiles">
-                <Directory Id="APPLICATIONFOLDER" Name="UnlockIt">
-                    <Directory Id="RESOURCESFOLDER" Name="resources" />
-                </Directory>
+            <Directory Id="$(var.PlatformProgramFilesFolder)" Name="PFiles">
+                <Directory Id="APPLICATIONFOLDER" Name="UnlockIt" />
             </Directory>
             <Directory Id="ProgramMenuFolder">
                 <Directory Id="ApplicationProgramsFolder" Name="UnlockIt" />
             </Directory>
             <Directory Id="DesktopFolder" />
-            <Directory Id="StartupFolder" />
         </Directory>
 
-        <!-- Components -->
+        <!-- Main Application Component -->
         <DirectoryRef Id="APPLICATIONFOLDER">
-            <Component Id="UnlockItComponent" Guid="{{component_guid}}" Win64="yes">
+            <Component Id="UnlockItMainComponent" Guid="*" Win64="yes">
                 <File Id="UnlockItExe" 
-                      Source="{{app_exe}}" 
+                      Source="$(var.BinPath)" 
                       KeyPath="yes" 
                       Checksum="yes">
                     <Shortcut Id="UnlockItDesktopShortcut"
@@ -81,41 +70,33 @@
                               Advertise="yes" />
                 </File>
                 
-                <!-- Registry entries for file associations and app registration -->
-                <RegistryValue Root="HKCU" 
+                <!-- Registry entries for app registration -->
+                <RegistryValue Root="HKLM" 
                               Key="Software\Mohamed Echbiy\UnlockIt" 
                               Name="InstallPath" 
                               Type="string" 
                               Value="[APPLICATIONFOLDER]" 
                               KeyPath="no" />
                               
-                <RegistryValue Root="HKCU" 
+                <RegistryValue Root="HKLM" 
                               Key="Software\Mohamed Echbiy\UnlockIt" 
                               Name="Version" 
                               Type="string" 
-                              Value="{{version}}" 
+                              Value="$(var.Version)" 
                               KeyPath="no" />
-            </Component>
-
-            <!-- WebView2 Runtime Component -->
-            <Component Id="WebView2Component" Guid="{{webview2_component_guid}}" Win64="yes">
-                <Condition>NOT WEBVIEW2_VERSION</Condition>
-                <File Id="WebView2Installer" 
-                      Source="{{webview2_installer_path}}" 
-                      KeyPath="yes" />
             </Component>
         </DirectoryRef>
 
         <!-- Start Menu Folder Component -->
         <DirectoryRef Id="ApplicationProgramsFolder">
-            <Component Id="ApplicationShortcutComponent" Guid="{{shortcut_component_guid}}" Win64="yes">
+            <Component Id="ApplicationShortcutComponent" Guid="*" Win64="yes">
                 <Shortcut Id="UninstallProduct"
                           Name="Uninstall UnlockIt"
                           Description="Uninstalls UnlockIt - Ultimate Achievement Tracker"
                           Target="[System64Folder]msiexec.exe"
                           Arguments="/x [ProductCode]" />
                 <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
-                <RegistryValue Root="HKCU" 
+                <RegistryValue Root="HKLM" 
                               Key="Software\Mohamed Echbiy\UnlockIt\Shortcuts" 
                               Name="installed" 
                               Type="integer" 
@@ -132,37 +113,12 @@
                  ConfigurableDirectory="APPLICATIONFOLDER"
                  AllowAdvertise="yes"
                  Display="expand">
-            <ComponentRef Id="UnlockItComponent" />
+            <ComponentRef Id="UnlockItMainComponent" />
             <ComponentRef Id="ApplicationShortcutComponent" />
-            
-            <Feature Id="WebView2Runtime"
-                     Title="Microsoft Edge WebView2 Runtime"
-                     Description="Required runtime for the application to function properly."
-                     Level="1"
-                     AllowAdvertise="no">
-                <ComponentRef Id="WebView2Component" />
-            </Feature>
         </Feature>
 
         <!-- Icons -->
-        <Icon Id="UnlockItIcon.exe" SourceFile="{{app_exe}}" />
-
-        <!-- UI Configuration -->
-        <UIRef Id="WixUI_FeatureTree" />
-        <UIRef Id="WixUI_ErrorProgressText" />
-
-        <!-- Custom UI Modifications -->
-        <UI>
-            <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
-        </UI>
-
-        <!-- Launch Application Custom Action -->
-        <Property Id="WixShellExecTarget" Value="[#UnlockItExe]" />
-        <CustomAction Id="LaunchApplication"
-                      BinaryKey="WixCA"
-                      DllEntry="WixShellExec"
-                      Impersonate="yes" />
+        <Icon Id="UnlockItIcon.exe" SourceFile="$(var.BinPath)" />
 
         <!-- Install Conditions -->
         <Condition Message="This application requires Windows 10 or higher.">
