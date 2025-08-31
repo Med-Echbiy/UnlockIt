@@ -1074,14 +1074,13 @@ function HowLongToBeatHeader({
   game: GameStoreData;
   onOpenDialog: () => void;
 }) {
-  const { executeHowLongToBeatWorkflow, getSessionData, clearStoredGameData } =
-    useHowLongToBeatWorkflow();
+  const { getSessionData, clearStoredGameData } = useHowLongToBeatWorkflow();
 
   const [howLongToBeatData, setHowLongToBeatData] =
     useState<HowLongToBeatGame | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(game.name);
+  const [isLoading] = useState(false);
+  const [isDialogOpen] = useState(false);
+  const [, setSearchQuery] = useState(game.name);
 
   // Debug logging
   useEffect(() => {
@@ -1099,39 +1098,39 @@ function HowLongToBeatHeader({
     setSearchQuery(game.name);
   }, [game.name]);
 
-  const handleFetchHowLongToBeat = async (gameName: string) => {
-    setIsLoading(true);
-    setIsDialogOpen(false);
-    try {
-      const selectedGame = await executeHowLongToBeatWorkflow(
-        String(game.appId),
-        gameName
-      );
-      if (selectedGame) {
-        setHowLongToBeatData(selectedGame);
-      }
-    } catch (error) {
-      console.error("Error fetching HowLongToBeat data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const handleFetchHowLongToBeat = async (gameName: string) => {
+  //   setIsLoading(true);
+  //   setIsDialogOpen(false);
+  //   try {
+  //     const selectedGame = await executeHowLongToBeatWorkflow(
+  //       String(game.appId),
+  //       gameName
+  //     );
+  //     if (selectedGame) {
+  //       setHowLongToBeatData(selectedGame);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching HowLongToBeat data:", error);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleClearData = async () => {
     await clearStoredGameData(String(game.appId));
     setHowLongToBeatData(null);
   };
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      handleFetchHowLongToBeat(searchQuery.trim());
-    }
-  };
+  // const handleSearch = () => {
+  //   if (searchQuery.trim()) {
+  //     handleFetchHowLongToBeat(searchQuery.trim());
+  //   }
+  // };
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-    setSearchQuery(game.name); // Reset to original game name
-  };
+  // const handleDialogClose = () => {
+  //   setIsDialogOpen(false);
+  //   setSearchQuery(game.name); // Reset to original game name
+  // };
 
   const getCompletionData = () => [
     {
@@ -1168,84 +1167,84 @@ function HowLongToBeatHeader({
     },
   ];
 
-  const SearchDialog = () => {
-    console.log("SearchDialog render, isDialogOpen:", isDialogOpen);
+  // const SearchDialog = () => {
+  //   console.log("SearchDialog render, isDialogOpen:", isDialogOpen);
 
-    if (!isDialogOpen) return null;
+  //   if (!isDialogOpen) return null;
 
-    return (
-      <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-        <div className='bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4'>
-          <div className='flex items-center gap-2 mb-4'>
-            <Search className='w-5 h-5' />
-            <h3 className='text-lg font-semibold'>Search HowLongToBeat</h3>
-          </div>
-          <p className='text-sm text-gray-600 dark:text-gray-400 mb-4'>
-            Enter the game name to search for completion time data. You can
-            modify the name if needed for better search results.
-          </p>
+  //   return (
+  //     <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
+  //       <div className='bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4'>
+  //         <div className='flex items-center gap-2 mb-4'>
+  //           <Search className='w-5 h-5' />
+  //           <h3 className='text-lg font-semibold'>Search HowLongToBeat</h3>
+  //         </div>
+  //         <p className='text-sm text-gray-600 dark:text-gray-400 mb-4'>
+  //           Enter the game name to search for completion time data. You can
+  //           modify the name if needed for better search results.
+  //         </p>
 
-          <div className='space-y-4'>
-            <div>
-              <label className='text-sm font-medium mb-2 block'>
-                Game Name
-              </label>
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder='Enter game name...'
-                className='w-full'
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && searchQuery.trim()) {
-                    handleSearch();
-                  }
-                }}
-                autoFocus
-              />
-              <p className='text-xs text-gray-500 mt-1'>
-                Tip: Try removing subtitles or year suffixes for better results
-              </p>
-            </div>
-          </div>
+  //         <div className='space-y-4'>
+  //           <div>
+  //             <label className='text-sm font-medium mb-2 block'>
+  //               Game Name
+  //             </label>
+  //             <Input
+  //               value={searchQuery}
+  //               onChange={(e) => setSearchQuery(e.target.value)}
+  //               placeholder='Enter game name...'
+  //               className='w-full'
+  //               onKeyDown={(e) => {
+  //                 if (e.key === "Enter" && searchQuery.trim()) {
+  //                   handleSearch();
+  //                 }
+  //               }}
+  //               autoFocus
+  //             />
+  //             <p className='text-xs text-gray-500 mt-1'>
+  //               Tip: Try removing subtitles or year suffixes for better results
+  //             </p>
+  //           </div>
+  //         </div>
 
-          <div className='flex gap-2 mt-6'>
-            <Button
-              variant='outline'
-              onClick={handleDialogClose}
-              className='flex-1'
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSearch}
-              disabled={!searchQuery.trim() || isLoading}
-              className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex-1'
-            >
-              {isLoading ? (
-                <>
-                  <motion.div
-                    className='w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2'
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
-                  />
-                  Searching...
-                </>
-              ) : (
-                <>
-                  <Search className='w-4 h-4 mr-2' />
-                  Search
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  //         <div className='flex gap-2 mt-6'>
+  //           <Button
+  //             variant='outline'
+  //             onClick={handleDialogClose}
+  //             className='flex-1'
+  //           >
+  //             Cancel
+  //           </Button>
+  //           <Button
+  //             onClick={handleSearch}
+  //             disabled={!searchQuery.trim() || isLoading}
+  //             className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 flex-1'
+  //           >
+  //             {isLoading ? (
+  //               <>
+  //                 <motion.div
+  //                   className='w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2'
+  //                   animate={{ rotate: 360 }}
+  //                   transition={{
+  //                     duration: 1,
+  //                     repeat: Infinity,
+  //                     ease: "linear",
+  //                   }}
+  //                 />
+  //                 Searching...
+  //               </>
+  //             ) : (
+  //               <>
+  //                 <Search className='w-4 h-4 mr-2' />
+  //                 Search
+  //               </>
+  //             )}
+  //           </Button>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   if (!howLongToBeatData) {
     return (
