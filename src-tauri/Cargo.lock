@@ -5586,7 +5586,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 
 [[package]]
 name = "unlockit"
-version = "1.0.0"
+version = "1.2.0"
 dependencies = [
  "base64 0.21.7",
  "image",
