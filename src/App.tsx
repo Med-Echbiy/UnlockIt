@@ -28,6 +28,11 @@ function App() {
   useEffect(() => {
     loadProfile();
 
+    // Disable browser's default scroll restoration
+    if ("scrollRestoration" in history) {
+      history.scrollRestoration = "manual";
+    }
+
     // Check for updates on startup (silently)
     setTimeout(() => {
       checkForAppUpdates().catch((error) => {
