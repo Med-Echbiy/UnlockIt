@@ -48,6 +48,7 @@ function SettingsDialog() {
     { name: "Xbox Rare Achievement", value: "xbox-rare.mp3" },
   ];
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
     if (open && dialogRef.current) {
       gsap.fromTo(
         dialogRef.current,
