@@ -60,7 +60,7 @@ const useStoreAchievements = () => {
   }
   async function unlockAchievement(
     app_id: string,
-    { name, achievedAt }: { name: string; achievedAt: string }
+    { name, achievedAt }: { name: string; achievedAt?: string }
   ) {
     const dir = await appLocalDataDir();
 
@@ -84,11 +84,18 @@ const useStoreAchievements = () => {
     } catch (e) {
       return false;
     }
+
+    // Default to current time in milliseconds if achievedAt is not provided or empty
+    const unlockTime =
+      achievedAt && achievedAt.trim() !== ""
+        ? achievedAt
+        : Date.now().toString();
+
     const achievements: Achievement[] =
       parsed.game?.availableGameStats?.achievements || [];
     const updateAchievements = achievements.map((ach) =>
       ach.name === name
-        ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: achievedAt }
+        ? { ...ach, hidden: 0, defaultvalue: 1, achievedAt: unlockTime }
         : ach
     );
     const updated = {
