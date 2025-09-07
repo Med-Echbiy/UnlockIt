@@ -5,8 +5,30 @@
 [![Built with React](https://img.shields.io/badge/Built%20with-React-61DAFB.svg)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Version](https://img.shields.io/badge/Version-1.3.0-brightgreen.svg)](https://github.com/Med-Echbiy/UnlockIt/releases)
 
 > **The ultimate achievement tracking application for PC gamers.** Track your progress, monitor playtime, unlock achievements, and enhance your gaming experience with detailed statistics and insights.
+
+## 📸 Screenshots
+
+<div align="center">
+  
+### 🏠 Home Dashboard
+![Home Page](public/homePage.png)
+
+### 🎮 My Games Library
+
+![My Games](public/myGames.png)
+
+### 📊 Game Details & Achievements
+
+![Game Details](public/game_details.png)
+
+### 🔔 Achievement Notifications
+
+![Test Notification](public/testNotification.png)
+
+</div>
 
 ## 🌟 Features
 
@@ -154,8 +176,10 @@ UnlockIt currently supports the following Steam emulators for achievement tracki
 
 - **ALI213** - Full support for achievement tracking and playtime monitoring
 - **RUNE** - Compatible with most games and features
-- **Codex** - Works with achievement unlocking and progress tracking
-- **Online Fix** - Supports online features and achievement synchronization
+- **CODEX** - Works with achievement unlocking and progress tracking (dual location support)
+- **ONLINE_FIX** - Supports online features and achievement synchronization
+- **Steam Config** - Native Steam configuration file support
+- **Goldberg SteamEmu** - 🆕 Latest addition with JSON/INI format support
 
 ### Adding Games with Emulators
 
@@ -177,13 +201,19 @@ If your game doesn't appear or isn't working properly with UnlockIt:
 2. Locate the `steam_api.dll` file
 3. Rename it to `steam_api.dll.bak` (this creates a backup)
 
-**Step 2: Install ALI213 Emulator**
+**Step 2: Use SteamAutoCracker Tool**
 
-1. Copy the ALI213 SteamEmu files from the `ALI213 SteamEmu` folder from the repository:
+1. Download **SteamAutoCracker** from: [https://github.com/BigBoiCJ/SteamAutoCracker/releases/tag/2.2.1-gui](https://github.com/BigBoiCJ/SteamAutoCracker/releases/tag/2.2.1-gui)
+2. Extract the downloaded archive to a convenient location
+3. Run `SteamAutoCracker.exe` as administrator
+4. In the application:
+   - Browse and select your game's executable file
+   - Choose **ALI213** as the crack type
+   - Click "Crack" to apply the emulator files
+5. The tool will automatically generate and place the necessary files:
    - `steam_api.dll`
    - `steam_api64.dll`
    - `valve.ini`
-2. Paste these files into your game's installation directory in where you found the original `steam_api.dll`.
 
 **Step 3: Test Game Launch**
 
@@ -192,9 +222,9 @@ If your game doesn't appear or isn't working properly with UnlockIt:
 3. UnlockIt should now be able to track achievements and playtime
 
 **Step 4: Rollback if Needed**
-If the game fails to launch after applying the ALI213 emulator:
+If the game fails to launch after applying the crack:
 
-1. Delete the recently pasted ALI213 files:
+1. Delete the generated emulator files:
    - `steam_api.dll`
    - `steam_api64.dll`
    - `valve.ini`
@@ -206,8 +236,6 @@ If the game fails to launch after applying the ALI213 emulator:
 #### Game Not Detected
 
 - Ensure you're pointing to the correct game executable
-- Check that the emulator files are in the same directory as the game
-- Verify that the `valve.ini` file has the correct game configuration AppID
 
 #### Achievements Not Tracking
 
@@ -219,13 +247,15 @@ If the game fails to launch after applying the ALI213 emulator:
 - Follow the rollback steps above to restore original files
 - Try running the game as administrator
 - Check Windows Defender or antivirus settings (emulator files might be flagged)
+- Ensure SteamAutoCracker was run as administrator
 
 ### Best Practices
 
-1. **Always backup original files** before applying emulator fixes
-2. **Test one game at a time** when applying emulator changes
-3. **Keep UnlockIt running** while playing games for proper tracking
-4. **Check compatibility** before purchasing 😂 or installing new games
+1. **Always backup original files** before applying any emulator cracks
+2. **Use SteamAutoCracker as administrator** for best results
+3. **Test one game at a time** when applying emulator changes
+4. **Keep UnlockIt running** while playing games for proper tracking
+5. **Check compatibility** before purchasing 😂 or installing new games
 
 <!-- ### Notification Settings
 
