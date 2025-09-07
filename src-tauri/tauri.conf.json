@@ -58,7 +58,12 @@
     "homepage": "https://github.com/Med-Echbiy/UnlockIt",
     "license": "MIT",
     "externalBin": [],
-    "resources": ["resources/*"]
+    "resources": [
+      "resources/*",
+      "../public/*.mp3",
+      "../public/*.webp",
+      "../public/*.png"
+    ]
   },
   "plugins": {
     "updater": {

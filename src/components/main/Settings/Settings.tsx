@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { resolveResource } from "@tauri-apps/api/path";
 import {
   Dialog,
   DialogContent,
@@ -107,10 +109,40 @@ function SettingsDialog() {
 
   const playNotificationSound = async (soundFile: string) => {
     try {
-      const audio = new Audio(`${soundFile}`);
-      audio.play();
+      let audioSrc: string;
+
+      // Check if we're in a Tauri environment
+      const isTauri = typeof (window as any).__TAURI__ !== "undefined";
+
+      if (isTauri) {
+        try {
+          // First try to resolve as a bundled resource
+          const resourcePath = await resolveResource(soundFile);
+          audioSrc = convertFileSrc(resourcePath);
+        } catch (resourceError) {
+          // Fallback to direct file conversion if resource resolution fails
+          console.warn(
+            "Resource resolution failed, trying direct path:",
+            resourceError
+          );
+          audioSrc = convertFileSrc(soundFile);
+        }
+      } else {
+        // For development mode, use direct path
+        audioSrc = `/${soundFile}`;
+      }
+
+      console.log("Playing sound from:", audioSrc);
+      const audio = new Audio(audioSrc);
+      await audio.play();
     } catch (error) {
       console.error("Failed to play sound:", error);
+      toast.error("Failed to play notification sound", {
+        style: {
+          background: "rgb(185 28 28)",
+        },
+        description: `Could not load sound file: ${soundFile}`,
+      });
     }
   };
 

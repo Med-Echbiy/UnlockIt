@@ -25,7 +25,12 @@ async function findIniRecursive(
 }
 
 export async function extractAppIdFromSteamEmuIni(dir: string) {
-  const iniFiles = ["steam_emu.ini", "valve.ini", "SteamConfig.ini"];
+  const iniFiles = [
+    "steam_emu.ini",
+    "valve.ini",
+    "SteamConfig.ini",
+    "steam_api.ini",
+  ];
   for (const iniFile of iniFiles) {
     try {
       const directPath = await join(dir, iniFile);
