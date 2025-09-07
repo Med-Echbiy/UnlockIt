@@ -195,13 +195,7 @@ UnlockIt currently supports the following Steam emulators for achievement tracki
 
 If your game doesn't appear or isn't working properly with UnlockIt:
 
-**Step 1: Backup Original Files**
-
-1. Navigate to your game's installation directory
-2. Locate the `steam_api.dll` file
-3. Rename it to `steam_api.dll.bak` (this creates a backup)
-
-**Step 2: Use SteamAutoCracker Tool**
+**Step 1: Use SteamAutoCracker Tool**
 
 1. Download **SteamAutoCracker** from: [https://github.com/BigBoiCJ/SteamAutoCracker/releases/tag/2.2.1-gui](https://github.com/BigBoiCJ/SteamAutoCracker/releases/tag/2.2.1-gui)
 2. Extract the downloaded archive to a convenient location
@@ -215,13 +209,13 @@ If your game doesn't appear or isn't working properly with UnlockIt:
    - `steam_api64.dll`
    - `valve.ini` or `steamConfig.ini`
 
-**Step 3: Test Game Launch**
+**Step 2: Test Game Launch**
 
 1. Try launching your game
 2. If the game launches successfully, you can now add it to UnlockIt
 3. UnlockIt should now be able to track achievements and playtime
 
-**Step 4: Rollback if Needed**
+**Step 3: Rollback if Needed**
 If the game fails to launch after applying the crack:
 
 1. Delete the generated emulator files:
