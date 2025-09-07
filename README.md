@@ -213,7 +213,7 @@ If your game doesn't appear or isn't working properly with UnlockIt:
 5. The tool will automatically generate and place the necessary files:
    - `steam_api.dll`
    - `steam_api64.dll`
-   - `valve.ini`
+   - `valve.ini` or `steamConfig.ini`
 
 **Step 3: Test Game Launch**
 
@@ -227,7 +227,7 @@ If the game fails to launch after applying the crack:
 1. Delete the generated emulator files:
    - `steam_api.dll`
    - `steam_api64.dll`
-   - `valve.ini`
+   - `valve.ini` or `steamConfig.ini`
 2. Rename `steam_api.dll.bak` back to `steam_api.dll`
 3. This means the game is not currently supported 😢
 
