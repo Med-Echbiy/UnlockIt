@@ -35,6 +35,8 @@
 ### 🏆 Achievement Tracking
 
 - **Real-time Achievement Monitoring**: Automatically tracks and unlocks achievements as you play
+- **Universal Emulator Support**: Works with ALI213, RUNE, CODEX, ONLINE FIX, Goldberg, and Steam Config
+- **Advanced Scoring System**: Comprehensive point-based ranking with 6-tier rarity system (Common to Mythic)
 - **Progress Visualization**: Beautiful progress bars and statistics for each game
 - **Achievement Details**: View achievement descriptions, unlock dates, and rarity information
 - **Bulk Achievement Management**: Reset, sync, or manage achievements in bulk
@@ -52,6 +54,38 @@
 - **Gaming Statistics**: Track your overall gaming progress and achievements
 - **Visual Progress**: Beautiful charts and graphs of your gaming journey
 - **Completion Tracking**: Monitor your game completion percentages
+
+### 🏅 Advanced Scoring System
+
+UnlockIt features a comprehensive scoring system that rewards players based on achievement rarity and gaming milestones:
+
+#### Achievement Tier System
+
+- **Mythic** (0-0.5% unlock rate): 1,000 base points - Ultra-rare achievements that few players have unlocked
+- **Legendary** (0.5-3% unlock rate): 500 base points - Extremely rare and prestigious achievements
+- **Epic** (3-10% unlock rate): 100 base points - Challenging achievements requiring skill or dedication
+- **Rare** (10-25% unlock rate): 50 base points - Moderately difficult achievements
+- **Uncommon** (25-50% unlock rate): 25 base points - Standard achievements with some challenge
+- **Common** (50-100% unlock rate): 10 base points - Basic achievements most players earn
+
+#### Player Ranking System
+
+Progress through 7 distinct ranks based on your total score and completion percentage:
+
+- **Novice** (0+ points, 0%+ completion): Just starting your gaming journey
+- **Explorer** (1,000+ points, 20%+ completion): Beginning to explore gaming achievements
+- **Hunter** (5,000+ points, 40%+ completion): Active achievement hunter
+- **Master** (10,000+ points, 60%+ completion): Skilled player with solid achievements
+- **Legend** (25,000+ points, 75%+ completion): Legendary achievements and high completion rates
+- **Grandmaster** (50,000+ points, 90%+ completion): Elite gaming mastery
+- **Touch Grass** (200,000+ points, 98%+ completion): Ultimate gaming mastery achieved. Time to go outside!
+
+#### Bonus Multipliers
+
+- **Rarity Bonuses**: Extra points for unlocking rare achievements within specific timeframes
+- **Completion Streaks**: Bonus points for completing multiple games consecutively
+- **Speed Bonuses**: Rewards for achieving 100% completion in record time
+- **Difficulty Multipliers**: Enhanced scoring for games with notoriously challenging achievements (souls like games, etc.)
 
 ### 🔔 Notifications & Alerts
 
