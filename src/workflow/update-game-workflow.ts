@@ -3,8 +3,11 @@ import useMyGamesStore from "@/store/my-games-store";
 import { load } from "@tauri-apps/plugin-store";
 
 const useUpdateGameWorkflow = () => {
-  const { setStatus: setStoreStatus, setRating: setStoreRating } =
-    useMyGamesStore();
+  const {
+    setStatus: setStoreStatus,
+    setRating: setStoreRating,
+    setPlaytime: setStorePlaytime,
+  } = useMyGamesStore();
 
   const setGameStatus = async (
     appId: string,
@@ -43,9 +46,27 @@ const useUpdateGameWorkflow = () => {
     }
   };
 
+  const setGamePlaytime = async (appId: string, playtime: number) => {
+    setStorePlaytime(appId, playtime);
+    try {
+      const store = await load("my-games.json");
+      const gameKey = `game_${appId}`;
+      const gameData = (await store.get(gameKey)) as GameStoreData;
+
+      if (gameData) {
+        const updatedGame = { ...gameData, playtime };
+        await store.set(gameKey, updatedGame);
+        await store.save();
+      }
+    } catch (error) {
+      console.error("Failed to update game playtime in Tauri store:", error);
+    }
+  };
+
   return {
     setGameStatus,
     setGameRating,
+    setGamePlaytime,
   };
 };
 

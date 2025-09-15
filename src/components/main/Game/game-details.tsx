@@ -6,9 +6,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 import useAchievementsStore from "@/store/achievements-store";
 import useMyGamesStore from "@/store/my-games-store";
-import useEnhancedTrackPlaytimeWorkflow from "@/workflow/enhanced-track-playtime-workflow";
+import usePersistentPlaytimeWorkflow from "@/workflow/persistent-playtime-workflow";
+import useAutoGameStatusWorkflow from "@/workflow/auto-game-status-workflow";
+import ManualPlaytimeInput from "./manual-playtime-input";
 import useHowLongToBeatWorkflow from "@/workflow/how-long-to-beat-workflow";
 import useScoringSystemWorkflow from "@/workflow/scoring-system-worfklow";
 import { HowLongToBeatGame } from "@/types/howLongToBeat";
@@ -65,6 +68,7 @@ import { SystemScoreAchievement } from "./system-score-achievement";
 import { getTierByPercentage, TIER_CONFIGS } from "@/lib/ranking-system";
 import type { AchievementTier } from "@/lib/ranking-system";
 import { GameScore } from "@/types/scoring";
+import useSilentPercentageRefreshWorkflow from "@/workflow/silent-percentage-refresh-workflow";
 
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
@@ -385,8 +389,15 @@ function GameDetailsHeader({ id }: { id: string }) {
   const game = useMyGamesStore((state) => state.getGameById(id as string));
   const { setGameStatus, setGameRating } = useUpdateGameWorkflow();
 
-  const { isRunning, isMonitoring, formatPlaytime, smartStart, stopTracking } =
-    useEnhancedTrackPlaytimeWorkflow(String(game!.appId), game!.exePath);
+  const {
+    isRunning,
+    isMonitoring,
+    formatPlaytime,
+    smartStart,
+    stopTracking,
+    setManualPlaytime,
+  } = usePersistentPlaytimeWorkflow(String(game!.appId), game!.exePath);
+  const { checkAndUpdateGameStatus } = useAutoGameStatusWorkflow();
   const [coverImg, setCoverImage] = useState<string | null>(null);
   const [installed, setInstalled] = useState<boolean>(false);
 
@@ -453,9 +464,24 @@ function GameDetailsHeader({ id }: { id: string }) {
                   </div>
                 </Button>
               )}
+
+              {/* Manual Playtime Input */}
+              <ManualPlaytimeInput
+                currentPlaytime={game?.playtime || 0}
+                onPlaytimeChange={async (playtime) => {
+                  await setManualPlaytime(playtime);
+                  // Check if status should be updated to "played"
+                  await checkAndUpdateGameStatus(String(game!.appId));
+                }}
+              />
+
+              {/* Auto-tracked playtime display */}
               <Button className='flex items-center gap-2' variant='outline'>
                 <Clock />
                 <span>{formatPlaytime()}</span>
+                <span className='text-xs text-muted-foreground ml-1'>
+                  (tracked)
+                </span>
               </Button>
 
               {/* Status indicator */}
@@ -509,6 +535,66 @@ function GameDetailsHeader({ id }: { id: string }) {
   );
 }
 
+// RefreshButton component to handle cooldown display
+function RefreshButton({
+  onRefresh,
+  isRefreshing,
+  canRefresh,
+}: {
+  onRefresh: () => void;
+  isRefreshing: boolean;
+  canRefresh: () => Promise<{ canRefresh: boolean; timeRemaining?: number }>;
+}) {
+  const [refreshStatus, setRefreshStatus] = useState<{
+    canRefresh: boolean;
+    timeRemaining?: number;
+  }>({ canRefresh: true });
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
+
+  useEffect(() => {
+    const checkRefreshStatus = async () => {
+      const status = await canRefresh();
+      setRefreshStatus(status);
+
+      if (!status.canRefresh && status.timeRemaining) {
+        const hours = Math.floor(status.timeRemaining / 3600000);
+        const minutes = Math.floor((status.timeRemaining % 3600000) / 60000);
+        setTimeRemaining(`${hours}h ${minutes}m`);
+      } else {
+        setTimeRemaining("");
+      }
+    };
+
+    checkRefreshStatus();
+    // Update every minute to show accurate countdown
+    const interval = setInterval(checkRefreshStatus, 60000);
+
+    return () => clearInterval(interval);
+  }, [canRefresh]);
+
+  const buttonText = isRefreshing
+    ? "Refreshing..."
+    : !refreshStatus.canRefresh
+    ? `Cooldown (${timeRemaining})`
+    : "Refresh Achievements";
+
+  return (
+    <Button
+      onClick={onRefresh}
+      disabled={isRefreshing}
+      variant={!refreshStatus.canRefresh ? "secondary" : "default"}
+      title={
+        !refreshStatus.canRefresh
+          ? `Achievement percentages can be refreshed again in ${timeRemaining}`
+          : "Refresh achievement data and percentages"
+      }
+    >
+      {buttonText}
+      <RefreshCcw className={isRefreshing ? "animate-spin" : ""} />
+    </Button>
+  );
+}
+
 function GameDetailsAchievements({ game }: { game: GameStoreData }) {
   const rawAchievements = useAchievementsStore(
     (s) =>
@@ -521,6 +607,7 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
   const [filter, setFilter] = useState<
     "all" | "unlocked" | "locked" | "hidden"
   >("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filteredAchievements = !Array.isArray(achievements)
     ? []
@@ -536,7 +623,55 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
     exePath: game.exePath,
   });
   const { resetAchievements } = useResetAchievementsWorkflow(game.appId);
+  const { manualRefreshPercentages, canRefresh } =
+    useSilentPercentageRefreshWorkflow();
   const { setConfirmationModal, confirmationModal } = useUIStateStore();
+
+  async function onRefresh() {
+    if (isRefreshing) return;
+
+    // Check if refresh is allowed
+    const refreshStatus = await canRefresh();
+    if (!refreshStatus.canRefresh && refreshStatus.timeRemaining) {
+      const hours = Math.floor(refreshStatus.timeRemaining / 3600000);
+      const minutes = Math.floor(
+        (refreshStatus.timeRemaining % 3600000) / 60000
+      );
+
+      toast.info(
+        `Achievement percentages can only be refreshed once per day. Next refresh available in ${hours}h ${minutes}m.`,
+        { duration: 5000 }
+      );
+
+      // Still parse local achievements even if we can't refresh percentages
+      setIsRefreshing(true);
+      try {
+        await parseAchievements();
+        console.log(
+          "✅ Achievement parsing completed (percentages not refreshed due to cooldown)"
+        );
+      } catch (error) {
+        console.error("❌ Failed to refresh achievements:", error);
+      } finally {
+        setIsRefreshing(false);
+      }
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      // Parse achievements and refresh percentages in parallel
+      await Promise.all([parseAchievements(), manualRefreshPercentages()]);
+      console.log("✅ Achievement refresh and percentage update completed");
+      toast.success("Achievement data refreshed successfully!");
+    } catch (error) {
+      console.error("❌ Failed to refresh achievements/percentages:", error);
+      toast.error("Failed to refresh achievement data");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
+
   function onReset() {
     setConfirmationModal(true, "reset achievements", () => {
       resetAchievements();
@@ -590,10 +725,11 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
                   </Button>
                 </div>
                 <div className='flex items-center gap-2'>
-                  <Button onClick={() => parseAchievements()}>
-                    Refresh Achievements
-                    <RefreshCcw />
-                  </Button>
+                  <RefreshButton
+                    onRefresh={onRefresh}
+                    isRefreshing={isRefreshing}
+                    canRefresh={canRefresh}
+                  />
                   <Button variant='destructive' onClick={() => onReset()}>
                     Reset Achievements
                     <Trash />
@@ -626,12 +762,13 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
   const [icon, setIcon] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Calculate achievement tier based on unlock percentage (mock calculation)
-  // In real implementation, you'd get this from your achievement statistics
-  const mockUnlockPercentage =
-    achievement.defaultvalue === 1 ? Math.random() * 100 : 0;
-  const achievementTier: AchievementTier =
-    getTierByPercentage(mockUnlockPercentage);
+  // Calculate achievement tier based on Steam's global unlock percentage
+  const achievementPercentage = achievement.percent
+    ? parseFloat(achievement.percent)
+    : 100;
+  const achievementTier: AchievementTier = getTierByPercentage(
+    achievementPercentage
+  );
   const tierConfig = TIER_CONFIGS[achievementTier];
 
   useEffect(() => {

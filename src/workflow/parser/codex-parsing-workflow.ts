@@ -46,9 +46,10 @@ const useCodexParserWorkflow = ({
           }
 
           // Second location: AppData Roaming folder
-          const appDataPath = await path.appDataDir();
+          const homeDir = await path.homeDir();
+          const roamingPath = await path.join(homeDir, "AppData", "Roaming");
           const roamingCodexPath = await path.join(
-            appDataPath,
+            roamingPath,
             "Steam",
             "CODEX",
             app_id.toString()

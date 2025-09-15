@@ -8,6 +8,7 @@ interface MyGamesStore {
   getGameById: (appId: string) => GameStoreData | undefined;
   setStatus: (appId: string, status: GameStoreData["status"]) => void;
   setRating: (appId: string, rating: string) => void;
+  setPlaytime: (appId: string, playtime: number) => void;
   getGames: () => GameStoreData[];
 }
 
@@ -40,6 +41,12 @@ const useMyGamesStore = create<MyGamesStore>((set, get) => ({
     set((state) => ({
       games: state.games.map((game) =>
         String(game.appId) === appId ? { ...game, my_rating: rating } : game
+      ),
+    })),
+  setPlaytime: (appId, playtime) =>
+    set((state) => ({
+      games: state.games.map((game) =>
+        String(game.appId) === appId ? { ...game, playtime } : game
       ),
     })),
   getGames: () => get().games,

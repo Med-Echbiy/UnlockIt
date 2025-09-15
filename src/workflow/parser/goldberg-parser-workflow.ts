@@ -16,66 +16,11 @@ const useGoldbergParserWorkflow = ({
 }) => {
   const { saveToTrackList } = sharedParsingWorkflow();
 
-  // Function to read steam_appid.txt and get the correct app ID for Goldberg games
-  async function readSteamAppId(
-    _exe_path: string = exePath
-  ): Promise<number | null> {
-    try {
-      if (!_exe_path) {
-        console.log("No exe path provided for steam_appid.txt lookup");
-        return null;
-      }
-
-      const gameDir = await path.dirname(_exe_path);
-      const steamSettingsPath = await path.join(gameDir, "steam_settings");
-      const appIdPath = await path.join(steamSettingsPath, "steam_appid.txt");
-
-      console.log(`Looking for steam_appid.txt at: ${appIdPath}`);
-
-      if (await exists(appIdPath)) {
-        const appIdContent = new TextDecoder().decode(
-          await readFile(appIdPath)
-        );
-        const extractedAppId = parseInt(appIdContent.trim());
-
-        if (!isNaN(extractedAppId)) {
-          console.log(
-            `✅ Found steam_appid.txt with App ID: ${extractedAppId}`
-          );
-          return extractedAppId;
-        } else {
-          console.warn(
-            `⚠️ Invalid App ID in steam_appid.txt: ${appIdContent.trim()}`
-          );
-          return null;
-        }
-      } else {
-        console.log(`❌ steam_appid.txt not found at: ${appIdPath}`);
-        return null;
-      }
-    } catch (error) {
-      console.error("Error reading steam_appid.txt:", error);
-      return null;
-    }
-  }
-
   async function parseGoldbergFolder(
     app_id: number = appid,
     _exe_path: string = exePath
   ) {
     try {
-      // First, try to get the correct app ID from steam_appid.txt
-      const goldbergAppId = await readSteamAppId(_exe_path);
-      if (goldbergAppId) {
-        console.log(
-          `Using Goldberg App ID from steam_appid.txt: ${goldbergAppId} (instead of ${app_id})`
-        );
-        app_id = goldbergAppId;
-      } else {
-        console.log(
-          `No steam_appid.txt found, using provided App ID: ${app_id}`
-        );
-      }
       const getGoldbergFilesWithId = async () => {
         const foundFiles: { filePath: string; location: string }[] = [];
 
@@ -88,29 +33,38 @@ const useGoldbergParserWorkflow = ({
           // because we already extracted the app ID from steam_appid.txt above.
           // The steam_settings/achievements.json is just definitions, not tracking data.
 
-          // First location: AppData Roaming - Goldberg SteamEmu Saves (GSE Saves)
-          const appDataPath = await path.appDataDir();
-          const goldbergPath = await path.join(
-            appDataPath,
-            "Goldberg SteamEmu Saves",
-            app_id.toString()
-          );
+          // First location: AppData Roaming - GSE Saves (most common)
+          const homeDir = await path.homeDir();
+          const roamingPath = await path.join(homeDir, "AppData", "Roaming");
 
-          // Also check for "GSE Saves" folder (alternative naming)
           const gsePath = await path.join(
-            appDataPath,
+            roamingPath,
             "GSE Saves",
             app_id.toString()
           );
 
-          console.log(`Checking Goldberg location: ${goldbergPath}`);
-          console.log(`Checking GSE location: ${gsePath}`);
+          // Alternative location: Goldberg SteamEmu Saves (less common)
+          const goldbergPath = await path.join(
+            roamingPath,
+            "Goldberg SteamEmu Saves",
+            app_id.toString()
+          );
 
-          // Check both possible locations
-          const possiblePaths = [goldbergPath, gsePath];
+          console.log(`Home dir: ${homeDir}`);
+          console.log(`Roaming path: ${roamingPath}`);
+          console.log(`Checking GSE location: ${gsePath}`);
+          console.log(`Checking Goldberg location: ${goldbergPath}`);
+
+          // Check both possible locations (GSE Saves first as it's more common)
+          const possiblePaths = [gsePath, goldbergPath];
 
           for (const checkPath of possiblePaths) {
-            if (await exists(checkPath)) {
+            console.log(`Checking if path exists: ${checkPath}`);
+            const pathExists = await exists(checkPath);
+            console.log(`Path exists: ${pathExists}`);
+
+            if (pathExists) {
+              console.log(`✅ Found Goldberg directory: ${checkPath}`);
               // Look for various achievement files that Goldberg might use
               const achievementFiles = [
                 "achievements.json", // Most common format
@@ -127,15 +81,19 @@ const useGoldbergParserWorkflow = ({
 
               for (const fileName of achievementFiles) {
                 const fullFilePath = await path.join(checkPath, fileName);
-                if (await exists(fullFilePath)) {
+                console.log(`Checking file: ${fullFilePath}`);
+                const fileExists = await exists(fullFilePath);
+                console.log(`File exists: ${fileExists}`);
+
+                if (fileExists) {
                   console.log(
-                    `✅ Found Goldberg achievement file: ${fileName}`
+                    `✅ Found Goldberg achievement file: ${fileName} in ${checkPath}`
                   );
                   foundFiles.push({
                     filePath: fullFilePath,
                     location: `Goldberg SteamEmu (${fileName})`,
                   });
-                  break; // Use the first file found (prioritized order)
+                  break; // Only break from this path's file search, continue to next path
                 }
               }
             }
@@ -143,7 +101,7 @@ const useGoldbergParserWorkflow = ({
 
           // Third location: AppData Roaming - EMPRESS (Goldberg variant)
           const empressPath = await path.join(
-            appDataPath,
+            roamingPath,
             "EMPRESS",
             "remote",
             app_id.toString()
@@ -423,7 +381,7 @@ const useGoldbergParserWorkflow = ({
     }
   }
 
-  return { parseGoldbergFolder, readSteamAppId };
+  return { parseGoldbergFolder };
 };
 
 export default useGoldbergParserWorkflow;

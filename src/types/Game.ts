@@ -35,4 +35,5 @@ export interface GameStoreData {
     | "beaten"
     | "trash";
   my_rating: string;
+  playtime?: number; // Manual playtime in seconds
 }

@@ -3,9 +3,10 @@ export const formatPlayTime = (seconds: number): string => {
   if (seconds === 0) return "No data";
 
   const hours = seconds / 60 / 60;
+  const minutes = seconds / 60;
 
   if (hours < 1) {
-    return `${seconds * 60}m`;
+    return `${Math.floor(minutes)}m`;
   } else {
     return `${Math.ceil(hours)}h`;
   }

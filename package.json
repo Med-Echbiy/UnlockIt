@@ -1,7 +1,7 @@
 {
   "name": "unlockit",
   "private": true,
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
   "description": "The ultimate achievement tracking application for PC gamers. Track your progress, monitor playtime, unlock achievements, and enhance your gaming experience with detailed statistics and insights.",
   "keywords": [

@@ -11,9 +11,11 @@ import useStoreAchievements from "./store-achievments-workflow";
 import { SteamSchemaResponse, Achievement } from "@/types/achievements";
 import useAchievementsStore from "@/store/achievements-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
+import { readGoldbergAppId } from "@/lib/read-goldberg-appid";
 import useUIStateStore from "@/store/ui-state-store";
 import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
 import useParsingWorkflow from "./parser/parse-workflow";
+import useAutoGameStatusWorkflow from "./auto-game-status-workflow";
 
 const useAddGameWorkflow = () => {
   const { setAddGameLoading, setGameLoadingName, setAddGameLoadingProgress } =
@@ -28,6 +30,7 @@ const useAddGameWorkflow = () => {
   const { storeJson } = useStoreAchievements();
   const { getSteamApiKey } = useRequiredDataStore();
   const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
+  const { checkAndUpdateGameStatus } = useAutoGameStatusWorkflow();
 
   // Helper function to fetch metadata with retry logic
   async function fetchMetadataWithRetry(
@@ -148,7 +151,11 @@ const useAddGameWorkflow = () => {
         Promise.all([
           extractAppIdFromSteamEmuIni(dir).catch(() => null),
           extractRealAppIdFromOnlineFixIni(dir).catch(() => null),
-        ]).then(([steamEmuId, onlineFixId]) => steamEmuId || onlineFixId),
+          readGoldbergAppId(gamePath).catch(() => null), // Add Goldberg support
+        ]).then(
+          ([steamEmuId, onlineFixId, goldbergId]) =>
+            steamEmuId || onlineFixId || goldbergId
+        ),
         new Promise<null>((_, reject) =>
           setTimeout(() => reject(new Error("AppID extraction timeout")), 5000)
         ),
@@ -241,6 +248,7 @@ const useAddGameWorkflow = () => {
         screenshots: metadata.screenshots,
         status: "not-played" as const,
         my_rating: "N/A",
+        playtime: 0, // Initialize with 0 playtime
       };
 
       setAddGameLoadingProgress(85);
@@ -254,6 +262,11 @@ const useAddGameWorkflow = () => {
       toast.success(`${name} added successfully!`, {
         style: { background: "rgb(34 197 94)" },
       });
+
+      // Check and auto-update game status based on existing playtime/achievements
+      setTimeout(() => {
+        checkAndUpdateGameStatus(String(metadata.steam_appid));
+      }, 1000);
 
       return true;
     } catch (error) {

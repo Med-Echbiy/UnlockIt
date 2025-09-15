@@ -13,6 +13,7 @@ import { GamingLoader } from "./components/main/shared/add-game-loading";
 import ConfirmationDialog from "./components/main/shared/confirmation-dialog";
 import CheckConnection from "./components/main/shared/check-connection";
 import useTrackingWorkflow from "./workflow/tracking-workflow";
+import useSilentPercentageRefreshWorkflow from "./workflow/silent-percentage-refresh-workflow";
 import { useEffect } from "react";
 import { ScrollToTopWrapper } from "./components/main/shared/ScrollToTop";
 import { checkForAppUpdates } from "./lib/updater";
@@ -23,6 +24,7 @@ function App() {
 
   useInitialWorkflow();
   useTrackingWorkflow();
+  useSilentPercentageRefreshWorkflow();
 
   useEffect(() => {
     loadProfile();
