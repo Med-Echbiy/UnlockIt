@@ -132,6 +132,11 @@ const useTrackingWorkflow = () => {
       if (game) {
         const { appId, exePath } = game;
         console.log("Game details - appId:", appId, "exePath:", exePath);
+        console.log(
+          "🔍 DEBUG: Checking added_lines length:",
+          payload.added_lines?.length
+        );
+        console.log("🔍 DEBUG: added_lines content:", payload.added_lines);
         if (payload.added_lines && payload.added_lines.length > 0) {
           console.log("Processing achievement changes for game:", game.name);
           console.log("Added lines:", payload.added_lines);
@@ -317,7 +322,147 @@ const useTrackingWorkflow = () => {
             console.log("No achievement patterns found in added lines");
           }
         } else {
-          console.log("No new lines added, skipping achievement check");
+          // No new lines added, but check if content changed (for JSON modifications like GSE Saves)
+          console.log("No new lines added, checking for content changes...");
+
+          if (payload.content && payload.content.length > 0) {
+            console.log(
+              "Content available, processing full content for changes"
+            );
+
+            // Prevent concurrent notification processing
+            if (isProcessingNotification.current) {
+              console.log(
+                "Already processing notifications, skipping this batch"
+              );
+              return;
+            }
+
+            // Update the last processed time
+            lastProcessedTime.current = now;
+            isProcessingNotification.current = true;
+
+            // Re-parse achievements from full content to detect changes
+            parseAchievements(appId, exePath)
+              .then(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                const { achievements: updatedAchievements } =
+                  useAchievementsStore.getState();
+                const currentAchievements = updatedAchievements.find(
+                  (ach) => Number(ach.gameId) === Number(appId)
+                );
+
+                if (
+                  currentAchievements?.game?.availableGameStats?.achievements
+                ) {
+                  const allAchievements =
+                    currentAchievements.game.availableGameStats.achievements;
+
+                  // Find recently unlocked achievements (unlocked in the last 30 seconds)
+                  const now = Math.floor(Date.now() / 1000);
+                  const recentlyUnlockedAchievements = allAchievements.filter(
+                    (ach) => {
+                      const achievedAt = parseInt(ach.achievedAt || "0");
+                      return (
+                        achievedAt > 0 &&
+                        achievedAt !== 0 &&
+                        ach.achievedAt !== "" &&
+                        now - achievedAt <= 30 // Unlocked within last 30 seconds
+                      );
+                    }
+                  );
+
+                  console.log(
+                    "Found recently unlocked achievements:",
+                    recentlyUnlockedAchievements.map((a) => ({
+                      name: a?.name,
+                      displayName: a?.displayName,
+                      achievedAt: a?.achievedAt,
+                      timeDiff: now - parseInt(a?.achievedAt || "0"),
+                    }))
+                  );
+
+                  if (recentlyUnlockedAchievements.length > 0) {
+                    console.log(
+                      "🎉 NEW ACHIEVEMENTS UNLOCKED (from content change)!"
+                    );
+
+                    // Show web toast notification ONCE for all achievements
+                    toast(
+                      `${recentlyUnlockedAchievements.length} new achievement${
+                        recentlyUnlockedAchievements.length > 1 ? "s" : ""
+                      } unlocked!`,
+                      {
+                        duration: 3000,
+                        style: {
+                          backgroundColor: "#a21caf", // tailwindcss purple-500
+                        },
+                      }
+                    );
+
+                    // Play sound ONCE for all achievements
+                    try {
+                      const soundPath = getProfile().notificationSound;
+                      console.log("=== SOUND DEBUG ===");
+                      console.log("Sound path from profile:", soundPath);
+
+                      if (soundPath) {
+                        console.log("Attempting to play notification sound...");
+                        await playNotificationSound(soundPath);
+                      }
+
+                      // Show ONE native notification for all achievements
+                      const firstAchievement = recentlyUnlockedAchievements[0];
+                      const achievementTitle =
+                        recentlyUnlockedAchievements.length === 1
+                          ? firstAchievement?.displayName ||
+                            firstAchievement?.name ||
+                            "Achievement Unlocked"
+                          : `${recentlyUnlockedAchievements.length} Achievements Unlocked!`;
+
+                      console.log(
+                        "Showing single native notification for",
+                        recentlyUnlockedAchievements.length,
+                        "achievements (content change detection)"
+                      );
+
+                      await invoke("toast_notification", {
+                        iconPath:
+                          firstAchievement?.icon || game.header_image || "",
+                        gameName: game.name,
+                        achievementName: achievementTitle,
+                        soundPath: soundPath || null,
+                        hero: game.header_image || "",
+                        progress: null,
+                        isRare: false,
+                      });
+                    } catch (error) {
+                      console.error("Failed to send notification:", error);
+                    } finally {
+                      // Reset processing flag
+                      isProcessingNotification.current = false;
+                    }
+                  } else {
+                    console.log(
+                      "No recently unlocked achievements found in content"
+                    );
+                    isProcessingNotification.current = false;
+                  }
+                } else {
+                  console.log("No achievement data available in store");
+                  isProcessingNotification.current = false;
+                }
+              })
+              .catch((error) => {
+                console.error(
+                  "Error parsing achievements from content:",
+                  error
+                );
+                isProcessingNotification.current = false; // Reset flag on error
+              });
+          } else {
+            console.log("No content available, skipping achievement check");
+          }
         }
       }
     });
