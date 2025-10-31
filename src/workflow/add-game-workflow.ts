@@ -12,6 +12,7 @@ import { SteamSchemaResponse, Achievement } from "@/types/achievements";
 import useAchievementsStore from "@/store/achievements-store";
 import { extractRealAppIdFromOnlineFixIni } from "@/lib/read-Online-fix-ini";
 import { readGoldbergAppId } from "@/lib/read-goldberg-appid";
+import { extractAppIdFromTenokeConfig } from "@/lib/read-tenoke-config";
 import useUIStateStore from "@/store/ui-state-store";
 import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
 import useParsingWorkflow from "./parser/parse-workflow";
@@ -152,9 +153,10 @@ const useAddGameWorkflow = () => {
           extractAppIdFromSteamEmuIni(dir).catch(() => null),
           extractRealAppIdFromOnlineFixIni(dir).catch(() => null),
           readGoldbergAppId(gamePath).catch(() => null), // Add Goldberg support
+          extractAppIdFromTenokeConfig(dir).catch(() => null), // Add TENOKE support
         ]).then(
-          ([steamEmuId, onlineFixId, goldbergId]) =>
-            steamEmuId || onlineFixId || goldbergId
+          ([steamEmuId, onlineFixId, goldbergId, tenokeId]) =>
+            steamEmuId || onlineFixId || goldbergId || tenokeId
         ),
         new Promise<null>((_, reject) =>
           setTimeout(() => reject(new Error("AppID extraction timeout")), 5000)

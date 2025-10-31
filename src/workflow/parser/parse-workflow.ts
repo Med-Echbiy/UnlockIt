@@ -9,6 +9,7 @@ import { load } from "@tauri-apps/plugin-store";
 import useRuneParserWorkflow from "./rune-parser.workflow";
 import useCodexParserWorkflow from "./codex-parsing-workflow";
 import useOnlineFixParserWorkflow from "./online-fix-parser-workflow";
+import useTenokeParserWorkflow from "./tenoke-parser-workflow";
 
 const useParsingWorkflow = ({
   appid,
@@ -28,6 +29,7 @@ const useParsingWorkflow = ({
     exePath,
   });
   const { parseGoldbergFolder } = useGoldbergParserWorkflow({ appid, exePath });
+  const { parseTenokeFolder } = useTenokeParserWorkflow({ appid, exePath });
   async function parseAchievements(
     app_id: number = appid,
     exe_path: string = exePath
@@ -42,6 +44,7 @@ const useParsingWorkflow = ({
       Type_CODEX,
       Type_ONLINE_FIX,
       Type_GOLDBERG,
+      Type_TENOKE,
     ] = await Promise.all([
       parseBinFileForAchievements(app_id, exe_path).catch(() => []),
       parseSteamConfigForAchievements(app_id, exe_path).catch(() => []),
@@ -49,6 +52,7 @@ const useParsingWorkflow = ({
       parseCodexFolder(app_id, exe_path).catch(() => []),
       parseOnlineFixFolder(app_id, exe_path).catch(() => []),
       parseGoldbergFolder(app_id, exe_path).catch(() => []),
+      parseTenokeFolder(app_id, exe_path).catch(() => []),
     ]);
 
     // Combine all achievements from different sources
@@ -59,6 +63,7 @@ const useParsingWorkflow = ({
       ...(Type_CODEX || []),
       ...(Type_ONLINE_FIX || []),
       ...(Type_GOLDBERG || []),
+      ...(Type_TENOKE || []),
     ];
 
     // Process all achievements at once instead of one by one

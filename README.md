@@ -35,7 +35,7 @@
 ### 🏆 Achievement Tracking
 
 - **Real-time Achievement Monitoring**: Automatically tracks and unlocks achievements as you play
-- **Universal Emulator Support**: Works with ALI213, RUNE, CODEX, ONLINE FIX, Goldberg, and Steam Config
+- **Universal Emulator Support**: Works with ALI213, RUNE, CODEX, ONLINE FIX, Goldberg, TENOKE, and Steam Config
 - **Advanced Scoring System**: Comprehensive point-based ranking with 6-tier rarity system (Common to Mythic)
 - **Progress Visualization**: Beautiful progress bars and statistics for each game
 - **Achievement Details**: View achievement descriptions, unlock dates, and rarity information
@@ -213,7 +213,8 @@ UnlockIt currently supports the following Steam emulators for achievement tracki
 - **CODEX** - Works with achievement unlocking and progress tracking (dual location support)
 - **ONLINE_FIX** - Supports online features and achievement synchronization
 - **Steam Config** - Native Steam configuration file support
-- **Goldberg SteamEmu** - 🆕 Latest addition with JSON/INI format support
+- **Goldberg SteamEmu** - JSON/INI format support for comprehensive game compatibility
+- **TENOKE** - 🆕 Latest addition with TENOKE.ini configuration file support
 
 ### Adding Games with Emulators
 

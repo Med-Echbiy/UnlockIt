@@ -572,21 +572,17 @@ function RefreshButton({
     return () => clearInterval(interval);
   }, [canRefresh]);
 
-  const buttonText = isRefreshing
-    ? "Refreshing..."
-    : !refreshStatus.canRefresh
-    ? `Cooldown (${timeRemaining})`
-    : "Refresh Achievements";
+  const buttonText = isRefreshing ? "Refreshing..." : "Refresh Achievements";
 
   return (
     <Button
       onClick={onRefresh}
       disabled={isRefreshing}
-      variant={!refreshStatus.canRefresh ? "secondary" : "default"}
+      variant='default'
       title={
         !refreshStatus.canRefresh
-          ? `Achievement percentages can be refreshed again in ${timeRemaining}`
-          : "Refresh achievement data and percentages"
+          ? `Refresh achievement files (always available) and data. Steam percentage fetching in cooldown: ${timeRemaining}. File checking has no limits.`
+          : "Refresh achievement files and fetch latest percentages from Steam API"
       }
     >
       {buttonText}
@@ -630,42 +626,39 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
   async function onRefresh() {
     if (isRefreshing) return;
 
-    // Check if refresh is allowed
-    const refreshStatus = await canRefresh();
-    if (!refreshStatus.canRefresh && refreshStatus.timeRemaining) {
-      const hours = Math.floor(refreshStatus.timeRemaining / 3600000);
-      const minutes = Math.floor(
-        (refreshStatus.timeRemaining % 3600000) / 60000
-      );
+    setIsRefreshing(true);
 
-      toast.info(
-        `Achievement percentages can only be refreshed once per day. Next refresh available in ${hours}h ${minutes}m.`,
-        { duration: 5000 }
-      );
+    try {
+      // ALWAYS parse local achievement files - NO COOLDOWN
+      // This checks achievement files from various crackers/emulators
+      await parseAchievements();
 
-      // Still parse local achievements even if we can't refresh percentages
-      setIsRefreshing(true);
-      try {
-        await parseAchievements();
+      // Check if Steam API percentage refresh is allowed (24h cooldown)
+      const refreshStatus = await canRefresh();
+      if (!refreshStatus.canRefresh && refreshStatus.timeRemaining) {
+        const hours = Math.floor(refreshStatus.timeRemaining / 3600000);
+        const minutes = Math.floor(
+          (refreshStatus.timeRemaining % 3600000) / 60000
+        );
+
+        toast.info(
+          `Achievement files refreshed! Percentages are in cooldown (${hours}h ${minutes}m remaining). Only percentage fetching is limited, not file checking.`,
+          { duration: 5000 }
+        );
+
         console.log(
           "✅ Achievement parsing completed (percentages not refreshed due to cooldown)"
         );
-      } catch (error) {
-        console.error("❌ Failed to refresh achievements:", error);
-      } finally {
-        setIsRefreshing(false);
+      } else {
+        // Also refresh percentages from Steam API
+        await manualRefreshPercentages();
+        console.log("✅ Achievement refresh and percentage update completed");
+        toast.success(
+          "Achievement files and percentages refreshed successfully!"
+        );
       }
-      return;
-    }
-
-    setIsRefreshing(true);
-    try {
-      // Parse achievements and refresh percentages in parallel
-      await Promise.all([parseAchievements(), manualRefreshPercentages()]);
-      console.log("✅ Achievement refresh and percentage update completed");
-      toast.success("Achievement data refreshed successfully!");
     } catch (error) {
-      console.error("❌ Failed to refresh achievements/percentages:", error);
+      console.error("❌ Failed to refresh achievements:", error);
       toast.error("Failed to refresh achievement data");
     } finally {
       setIsRefreshing(false);

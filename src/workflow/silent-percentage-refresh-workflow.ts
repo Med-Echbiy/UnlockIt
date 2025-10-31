@@ -17,6 +17,8 @@ const useSilentPercentageRefreshWorkflow = () => {
   const refreshStore = useRef<any>(null);
 
   // Throttle refreshes to max once per day
+  // NOTE: This cooldown ONLY applies to Steam API percentage fetching,
+  // NOT to local achievement file checking/parsing which can happen anytime
   const REFRESH_COOLDOWN = 24 * 60 * 60 * 1000; // 24 hours (1 day)
 
   // Initialize the persistent store for refresh timestamps
