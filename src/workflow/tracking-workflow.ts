@@ -61,13 +61,7 @@ const useTrackingWorkflow = () => {
 
   useEffect(() => {
     const getPaths = trackAchievementsFiles.map((item) => item.filePath);
-    const pathsString = JSON.stringify(getPaths.sort()); // Sort for consistent comparison
-
-    console.log({ getPaths });
-    console.log("getPaths length:", getPaths.length);
-    console.log("Current paths string:", pathsString);
-    console.log("Previous paths string:", currentPaths.current);
-    console.log("Is watcher already setup:", isWatcherSetup.current);
+    const pathsString = JSON.stringify(getPaths.sort()); // Sort for consistent cons
     if (
       getPaths.length > 0 &&
       (pathsString !== currentPaths.current || !isWatcherSetup.current)
@@ -189,6 +183,24 @@ const useTrackingWorkflow = () => {
             "Unique achievement names found:",
             Array.from(achievementNames)
           );
+
+          // Check if TENOKE format achievements were added (if bracket regex found nothing)
+          if (achievementNames.size === 0) {
+            console.log(
+              "No bracket-format achievements found, checking for TENOKE format..."
+            );
+            const handledByTenokeDetection = detectTenokeAchievementAdditions(
+              payload.added_lines,
+              appId,
+              exePath,
+              game
+            );
+
+            if (handledByTenokeDetection) {
+              console.log("✅ TENOKE addition detection handled the event");
+              return; // Exit early - TENOKE function already triggered notifications
+            }
+          }
 
           if (achievementNames.size > 0) {
             // Prevent concurrent notification processing
@@ -326,6 +338,29 @@ const useTrackingWorkflow = () => {
           console.log("No new lines added, checking for content changes...");
 
           if (payload.content && payload.content.length > 0) {
+            // NEW: Try JSON state change detection FIRST (10-second window, immediate detection)
+            console.log(
+              "🎯 Attempting JSON state change detection for earned=false→true cases..."
+            );
+            const handledByJsonDetection = detectJsonAchievementStateChanges(
+              payload.content,
+              appId,
+              exePath,
+              game
+            );
+
+            if (handledByJsonDetection) {
+              console.log(
+                "✅ JSON state change detection handled the event, skipping fallback"
+              );
+              return; // Exit early - no need for the 30-second fallback
+            }
+
+            console.log(
+              "No recent JSON state changes detected, falling back to 30-second window check..."
+            );
+
+            // ORIGINAL FALLBACK CODE (30-second window) - only runs if JSON detection found nothing
             console.log(
               "Content available, processing full content for changes"
             );
@@ -495,6 +530,298 @@ const useTrackingWorkflow = () => {
 
     return () => clearInterval(cleanupInterval);
   }, []);
+
+  /**
+   * Detects TENOKE INI-based achievement additions when new lines are added
+   * TENOKE format: "achievement_name" = {unlocked = true, time = 1761878592}
+   * Unlike other formats, TENOKE adds new lines when achievements unlock
+   */
+  function detectTenokeAchievementAdditions(
+    addedLines: string[],
+    appId: number,
+    exePath: string,
+    game: any
+  ): boolean {
+    try {
+      console.log("🔍 Checking for TENOKE achievement additions...");
+
+      const newlyUnlockedAchievements: string[] = [];
+
+      for (const line of addedLines) {
+        // Parse TENOKE format: "achievement_name" = {unlocked = true, time = 1761878592}
+        // Note: Rust adds "Line X: " prefix, so we need to handle that
+        const tenokeRegex = /"([^"]+)"\s*=\s*\{([^}]+)\}/;
+        const tenokeMatch = line.match(tenokeRegex);
+
+        if (tenokeMatch) {
+          const achievementName = tenokeMatch[1].trim();
+          const achievementData = tenokeMatch[2];
+
+          // Verify it's actually unlocked
+          const unlockedMatch = achievementData.match(/unlocked\s*=\s*true/i);
+          const timeMatch = achievementData.match(/time\s*=\s*(\d+)/);
+
+          if (unlockedMatch && timeMatch && achievementName) {
+            const unlockTime = Number(timeMatch[1]);
+            const now = Math.floor(Date.now() / 1000);
+            const timeDiff = now - unlockTime;
+
+            // Only detect achievements unlocked in the last 10 seconds
+            if (timeDiff <= 10 && !isNaN(unlockTime) && unlockTime > 0) {
+              console.log(
+                `✅ Found TENOKE achievement addition: ${achievementName} (${timeDiff}s ago)`
+              );
+              newlyUnlockedAchievements.push(achievementName);
+            }
+          }
+        }
+      }
+
+      // If we found newly unlocked achievements, trigger notifications
+      if (newlyUnlockedAchievements.length > 0) {
+        console.log(
+          `🎯 TENOKE Addition Detection: Found ${newlyUnlockedAchievements.length} newly unlocked achievements`
+        );
+
+        // Use the same notification pipeline
+        handleAchievementNotifications(
+          newlyUnlockedAchievements,
+          appId,
+          exePath,
+          game
+        );
+
+        return true; // Signal that we handled this
+      }
+
+      return false; // No TENOKE achievements detected
+    } catch (error) {
+      console.error("Error in TENOKE addition detection:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Detects JSON-based achievement state changes (earned: false → true)
+   * Specifically handles Goldberg GSE Saves format where no new lines are added
+   * This runs BEFORE the 30-second fallback to provide immediate detection
+   */
+  function detectJsonAchievementStateChanges(
+    content: string,
+    appId: number,
+    exePath: string,
+    game: any
+  ): boolean {
+    try {
+      // Only process JSON files
+      if (!content.trim().startsWith("{") && !content.trim().startsWith("[")) {
+        console.log("Not a JSON file, skipping JSON state change detection");
+        return false;
+      }
+
+      console.log("🔍 Checking for JSON achievement state changes...");
+
+      // Parse the JSON content
+      const data = JSON.parse(content);
+      const newlyUnlockedAchievements: string[] = [];
+
+      // Handle GSE Saves format (object with achievement names as keys)
+      if (
+        typeof data === "object" &&
+        !Array.isArray(data) &&
+        !data.achievements
+      ) {
+        console.log("Detected GSE Saves JSON format");
+
+        for (const [achievementName, achData] of Object.entries(data)) {
+          const achievement = achData as any;
+
+          // Check if earned is explicitly true and has a recent timestamp
+          if (achievement.earned === true && achievement.earned_time) {
+            const earnedTime = Number(achievement.earned_time);
+            const now = Math.floor(Date.now() / 1000);
+            const timeDiff = now - earnedTime;
+
+            // Only detect achievements earned in the last 10 seconds
+            // This is tighter than the 30-second fallback window
+            if (timeDiff <= 10) {
+              console.log(
+                `✅ Found recently earned achievement: ${achievementName} (${timeDiff}s ago)`
+              );
+              newlyUnlockedAchievements.push(achievementName);
+            }
+          }
+        }
+      }
+
+      // Handle standard Goldberg JSON format (object with achievements property)
+      if (data.achievements && typeof data.achievements === "object") {
+        console.log("Detected standard Goldberg JSON format");
+
+        for (const [achievementName, achData] of Object.entries(
+          data.achievements
+        )) {
+          const achievement = achData as any;
+
+          if (
+            achievement.earned ||
+            achievement.unlocked ||
+            achievement.achieved
+          ) {
+            const unlockTime =
+              achievement.unlock_time ||
+              achievement.unlocktime ||
+              achievement.time ||
+              0;
+
+            if (unlockTime > 0) {
+              const now = Math.floor(Date.now() / 1000);
+              const timeDiff = now - Number(unlockTime);
+
+              if (timeDiff <= 10) {
+                console.log(
+                  `✅ Found recently unlocked achievement: ${achievementName} (${timeDiff}s ago)`
+                );
+                newlyUnlockedAchievements.push(achievementName);
+              }
+            }
+          }
+        }
+      }
+
+      // If we found newly unlocked achievements, trigger notifications
+      if (newlyUnlockedAchievements.length > 0) {
+        console.log(
+          `🎯 JSON State Change Detection: Found ${newlyUnlockedAchievements.length} newly unlocked achievements`
+        );
+
+        // Use the same notification pipeline as the main workflow
+        handleAchievementNotifications(
+          newlyUnlockedAchievements,
+          appId,
+          exePath,
+          game
+        );
+
+        return true; // Signal that we handled this
+      }
+
+      return false; // No new achievements detected
+    } catch (error) {
+      console.error("Error in JSON state change detection:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Centralized achievement notification handler
+   * Used by both added_lines detection and JSON state change detection
+   */
+  async function handleAchievementNotifications(
+    achievementNames: string[] | Set<string>,
+    appId: number,
+    exePath: string,
+    game: any
+  ) {
+    const achievementNamesArray = Array.isArray(achievementNames)
+      ? achievementNames
+      : Array.from(achievementNames);
+
+    console.log(
+      `📢 Handling notifications for ${achievementNamesArray.length} achievements`
+    );
+
+    try {
+      // Re-parse achievements to get latest state
+      await parseAchievements(appId, exePath);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const { achievements: updatedAchievements } =
+        useAchievementsStore.getState();
+      const currentAchievements = updatedAchievements.find(
+        (ach) => Number(ach.gameId) === Number(appId)
+      );
+
+      if (!currentAchievements?.game?.availableGameStats?.achievements) {
+        console.log("No achievement data available in store");
+        return;
+      }
+
+      const allAchievements =
+        currentAchievements.game.availableGameStats.achievements;
+
+      // Find matching unlocked achievements
+      const unlockedAchievements = achievementNamesArray
+        .map((achievementName) => {
+          return allAchievements.find(
+            (ach) =>
+              ach.name === achievementName ||
+              ach.displayName === achievementName
+          );
+        })
+        .filter(Boolean)
+        .filter(
+          (ach) =>
+            ach?.achievedAt && ach.achievedAt !== "0" && ach.achievedAt !== ""
+        );
+
+      console.log(
+        "Found matching achievements:",
+        unlockedAchievements.map((a) => ({
+          name: a?.name,
+          displayName: a?.displayName,
+          achievedAt: a?.achievedAt,
+        }))
+      );
+
+      if (unlockedAchievements.length > 0) {
+        console.log("🎉 NEW ACHIEVEMENTS UNLOCKED!");
+
+        // Show web toast notification
+        toast(
+          `${unlockedAchievements.length} new achievement${
+            unlockedAchievements.length > 1 ? "s" : ""
+          } unlocked!`,
+          {
+            duration: 3000,
+            style: {
+              backgroundColor: "#a21caf",
+            },
+          }
+        );
+
+        // Play sound
+        const soundPath = getProfile().notificationSound;
+        if (soundPath) {
+          console.log("Attempting to play notification sound...");
+          await playNotificationSound(soundPath);
+        }
+
+        // Show native notification
+        const firstAchievement = unlockedAchievements[0];
+        const achievementTitle =
+          unlockedAchievements.length === 1
+            ? firstAchievement?.displayName ||
+              firstAchievement?.name ||
+              "Achievement Unlocked"
+            : `${unlockedAchievements.length} Achievements Unlocked!`;
+
+        await invoke("toast_notification", {
+          iconPath: firstAchievement?.icon || game.header_image || "",
+          gameName: game.name,
+          achievementName: achievementTitle,
+          soundPath: soundPath || null,
+          hero: game.header_image || "",
+          progress: null,
+          isRare: false,
+        });
+      } else {
+        console.log("No newly unlocked achievements found");
+      }
+    } catch (error) {
+      console.error("Error in notification handler:", error);
+    }
+  }
 
   function getGameBasedOnPath(path: string) {
     console.log("=== getGameBasedOnPath DEBUG ===");

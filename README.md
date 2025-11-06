@@ -278,6 +278,14 @@ If the game fails to launch after applying the crack:
 - Check Windows Defender or antivirus settings (emulator files might be flagged)
 - Ensure SteamAutoCracker was run as administrator
 
+#### Live Notifications Not Appearing
+
+- **⚠️ Important**: Avoid playing games in **fullscreen mode** to receive live achievement notifications
+- Use **Borderless Window** or **Windowed mode** instead
+- Fullscreen applications prevent Windows notifications from appearing on top
+- This is a Windows limitation, not an UnlockIt issue
+- You can change display mode in your game's graphics settings
+
 ### Best Practices
 
 1. **Always backup original files** before applying any emulator cracks
