@@ -61,6 +61,7 @@ const useSilentPercentageRefreshWorkflow = () => {
     if (isRefreshing.current || now - lastRefreshTime < REFRESH_COOLDOWN) {
       const timeRemaining = REFRESH_COOLDOWN - (now - lastRefreshTime);
       const hoursRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60));
+      console.log(`⏱️ Refresh cooldown: ${hoursRemaining}h remaining`);
       return;
     }
 

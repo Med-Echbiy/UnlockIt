@@ -37,6 +37,7 @@ function App() {
     // Check for updates on startup (silently)
     setTimeout(() => {
       checkForAppUpdates().catch((error) => {
+        console.error("Failed to check for updates:", error);
       });
     }, 3000); // Wait 3 seconds after startup
   }, [loadProfile]);
