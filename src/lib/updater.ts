@@ -1,25 +1,81 @@
-import { check } from "@tauri-apps/plugin-updater";
 import { ask, message } from "@tauri-apps/plugin-dialog";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { fetch } from "@tauri-apps/plugin-http";
+import { getVersion } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
+
+const GITHUB_API_URL =
+  "https://api.github.com/repos/Med-Echbiy/UnlockIt/releases/latest";
+
+const UPDATE_CHECK_KEY = "update_check_performed";
+
+function hasUpdateCheckBeenPerformed(): boolean {
+  return sessionStorage.getItem(UPDATE_CHECK_KEY) === "true";
+}
+
+function markUpdateCheckPerformed(): void {
+  sessionStorage.setItem(UPDATE_CHECK_KEY, "true");
+}
+
+function resetUpdateCheck(): void {
+  sessionStorage.removeItem(UPDATE_CHECK_KEY);
+}
+
+function compareVersions(current: string, latest: string): boolean {
+  const currentParts = current.split(".").map(Number);
+  const latestParts = latest.split(".").map(Number);
+
+  for (let i = 0; i < 3; i++) {
+    if (latestParts[i] > currentParts[i]) return true;
+    if (latestParts[i] < currentParts[i]) return false;
+  }
+  return false;
+}
 
 export async function checkForAppUpdates(): Promise<void> {
+  // Skip if already checked during this session
+  if (hasUpdateCheckBeenPerformed()) {
+    console.log("⏭️ Update check skipped - already checked this session");
+    return;
+  }
+
   try {
     console.log("🔍 Checking for application updates...");
-    
-    const update = await check();
 
-    if (update === null) {
-      console.log("✓ Already running the latest version");
-      return;
+    const currentVersion = await getVersion();
+
+    const response = await fetch(GITHUB_API_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API returned ${response.status}`);
     }
 
-    if (update.available) {
-      console.log(`✓ Update available: v${update.version}`);
-      console.log(`Current version: v${update.currentVersion}`);
-      console.log(`Release notes: ${update.body}`);
-      
+    const data = (await response.json()) as any;
+    const latestVersion = data.tag_name.replace("v", "");
+
+    console.log(`Current version: ${currentVersion}`);
+    console.log(`Latest version: ${latestVersion}`);
+
+    if (compareVersions(currentVersion, latestVersion)) {
+      console.log(`✓ Update available: v${latestVersion}`);
+
+      markUpdateCheckPerformed(); // Mark as checked
+
+      const msiAsset = data.assets.find((asset: any) =>
+        asset.name.endsWith(".msi")
+      );
+
+      if (!msiAsset) {
+        console.error("No MSI installer found in release");
+        return;
+      }
+
       const shouldUpdate = await ask(
-        `A new version ${update.version} is available!\n\nRelease Notes:\n${update.body}\n\nDo you want to download and install it now?`,
+        `A new version ${latestVersion} is available!\n\nDo you want to download and install it now?`,
         {
           title: "Update Available",
           kind: "info",
@@ -27,36 +83,16 @@ export async function checkForAppUpdates(): Promise<void> {
       );
 
       if (shouldUpdate) {
-        console.log("👤 User accepted update. Starting download...");
-        
-        await message("Downloading update... Please wait.", {
-          title: "Downloading Update",
-          kind: "info",
-        });
+        console.log("👤 User accepted update. Downloading installer...");
 
         try {
-          console.log("📥 Downloading and installing update...");
-          await update.downloadAndInstall();
-          
-          console.log("✓ Update installed successfully!");
-
-          const shouldRelaunch = await ask(
-            "Update installed successfully! The application needs to restart to apply the changes. Do you want to restart now?",
-            {
-              title: "Restart Required",
-              kind: "info",
-            }
-          );
-
-          if (shouldRelaunch) {
-            console.log("🔄 Restarting application...");
-            await relaunch();
-          } else {
-            console.log("👤 User chose to restart later");
-          }
+          invoke("download_and_install_update", {
+            url: msiAsset.browser_download_url,
+          });
+          console.log("✓ Installer launched");
         } catch (error) {
-          console.error("❌ Failed to install update:", error);
-          await message(`Failed to install update: ${error}`, {
+          console.error("Failed to download/install:", error);
+          await message(`Failed to download update: ${error}`, {
             title: "Update Failed",
             kind: "error",
           });
@@ -65,39 +101,80 @@ export async function checkForAppUpdates(): Promise<void> {
         console.log("👤 User declined update");
       }
     } else {
-      console.log("✓ No updates available - already running the latest version");
+      console.log("✓ Already running the latest version");
+      markUpdateCheckPerformed(); // Mark as checked even if no update
     }
   } catch (error) {
     console.error("❌ Update check failed:", error);
-    // Silently fail for automatic checks - don't show error to user unless they manually check
-    throw error; // Re-throw so manual checks can catch it
+    markUpdateCheckPerformed(); // Don't keep retrying if it fails
+    throw error;
   }
 }
 
 export async function checkForUpdatesManually(): Promise<void> {
   try {
     console.log("🔍 Manual update check initiated...");
-    
-    const update = await check();
-    
-    if (update === null) {
+
+    const currentVersion = await getVersion();
+
+    const response = await fetch(GITHUB_API_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API returned ${response.status}`);
+    }
+
+    const data = (await response.json()) as any;
+    const latestVersion = data.tag_name.replace("v", "");
+
+    if (!compareVersions(currentVersion, latestVersion)) {
       await message("You're already running the latest version!", {
         title: "No Updates Available",
         kind: "info",
       });
       return;
     }
-    
-    if (!update.available) {
-      await message("You're already running the latest version!", {
-        title: "No Updates Available",
-        kind: "info",
-      });
+
+    // Update available - show the dialog
+    const msiAsset = data.assets.find((asset: any) =>
+      asset.name.endsWith(".msi")
+    );
+
+    if (!msiAsset) {
+      console.error("No MSI installer found in release");
       return;
     }
-    
-    // If update is available, the checkForAppUpdates logic will handle it
-    await checkForAppUpdates();
+
+    const shouldUpdate = await ask(
+      `A new version ${latestVersion} is available!\n\nDo you want to download and install it now?`,
+      {
+        title: "Update Available",
+        kind: "info",
+      }
+    );
+
+    if (shouldUpdate) {
+      console.log("👤 User accepted update. Downloading installer...");
+
+      try {
+        invoke("download_and_install_update", {
+          url: msiAsset.browser_download_url,
+        });
+        console.log("✓ Installer launched");
+      } catch (error) {
+        console.error("Failed to download/install:", error);
+        await message(`Failed to download update: ${error}`, {
+          title: "Update Failed",
+          kind: "error",
+        });
+      }
+    } else {
+      console.log("👤 User declined update");
+    }
   } catch (error) {
     console.error("❌ Manual update check failed:", error);
     await message(

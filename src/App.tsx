@@ -40,7 +40,8 @@ function App() {
         console.error("Failed to check for updates:", error);
       });
     }, 3000); // Wait 3 seconds after startup
-  }, [loadProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   return (
     <Router>

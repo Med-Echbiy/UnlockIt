@@ -71,7 +71,8 @@ function SettingsDialog() {
       setApiKey(storedApiKey);
     }
     loadProfile();
-  }, [loadProfile, getProfile().avatar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getProfile().avatar]);
 
   useEffect(() => {
     setTempName(getProfile().name);

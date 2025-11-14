@@ -11,6 +11,43 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager, State};
 use notify::{Config as NotifyConfig, RecommendedWatcher, RecursiveMode, Watcher};
+
+#[tauri::command]
+async fn download_and_install_update(url: String) -> Result<String, String> {
+    // Download the MSI installer
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("Failed to download: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Download failed with status: {}", response.status()));
+    }
+    
+    // Get the temp directory
+    let temp_dir = std::env::temp_dir();
+    let installer_path = temp_dir.join("UnlockIt_Update.msi");
+    
+    // Write the file
+    let bytes = response.bytes()
+        .await
+        .map_err(|e| format!("Failed to read download: {}", e))?;
+    
+    std::fs::write(&installer_path, bytes)
+        .map_err(|e| format!("Failed to save installer: {}", e))?;
+    
+    // Launch the installer
+    #[cfg(target_os = "windows")]
+    {
+        StdCommand::new("msiexec")
+            .arg("/i")
+            .arg(&installer_path)
+            .spawn()
+            .map_err(|e| format!("Failed to launch installer: {}", e))?;
+    }
+    
+    Ok(installer_path.to_string_lossy().to_string())
+}
+
 #[derive(Default)]
 struct ProcessManager {
     processes: Arc<Mutex<HashMap<String, ProcessInfo>>>,
@@ -1674,6 +1711,7 @@ pub fn run() {
             hide_window,
             get_how_long_to_beat,
             fetch_steam_achievement_percentages,
+            download_and_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
