@@ -26,8 +26,7 @@ const useSilentPercentageRefreshWorkflow = () => {
     const initStore = async () => {
       try {
         refreshStore.current = await load("refresh-timestamps.json");
-      } catch (error) {
-      }
+      } catch (error) {}
     };
     initStore();
   }, []);
@@ -49,8 +48,7 @@ const useSilentPercentageRefreshWorkflow = () => {
       if (!refreshStore.current) return;
       await refreshStore.current.set("lastPercentageRefresh", timestamp);
       await refreshStore.current.save();
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const refreshAchievementPercentages = async () => {
