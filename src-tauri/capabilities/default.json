@@ -36,6 +36,10 @@
       "identifier": "shell:allow-spawn"
     },
     "notification:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "updater:allow-check",
+    "process:default",
+    "process:allow-restart"
   ]
 }
