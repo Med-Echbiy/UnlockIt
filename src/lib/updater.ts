@@ -16,10 +16,6 @@ function markUpdateCheckPerformed(): void {
   sessionStorage.setItem(UPDATE_CHECK_KEY, "true");
 }
 
-function resetUpdateCheck(): void {
-  sessionStorage.removeItem(UPDATE_CHECK_KEY);
-}
-
 function compareVersions(current: string, latest: string): boolean {
   const currentParts = current.split(".").map(Number);
   const latestParts = latest.split(".").map(Number);
