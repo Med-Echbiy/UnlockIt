@@ -27,12 +27,7 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
         // Total is the sum of both
         const totalPlaytime = tauriPlaytime + manualPlaytime;
         setPlaytime(totalPlaytime);
-
-        console.log(
-          `Loaded playtime for ${appid}: ${tauriPlaytime}s (tracked) + ${manualPlaytime}s (manual) = ${totalPlaytime}s total`
-        );
       } catch (e) {
-        console.error("Failed to load playtime:", e);
         const game = getGameById(appid);
         setPlaytime(game?.playtime || 0);
       }
@@ -49,7 +44,6 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
       });
       return isRunning;
     } catch (e) {
-      console.error("Failed to check process status:", e);
       return false;
     }
   };
@@ -59,7 +53,6 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
     try {
       const processRunning = await checkProcessStatus();
       if (!processRunning) {
-        console.log("Process is not running, cannot start monitoring");
         return false;
       }
 
@@ -71,11 +64,8 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
       setIsRunning(true);
       setIsMonitoring(true);
       startPlaytimeInterval();
-
-      console.log("Started monitoring already running process");
       return true;
     } catch (e) {
-      console.error("Failed to start monitoring:", e);
       return false;
     }
   };
@@ -83,7 +73,6 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
   // Launch game and start tracking
   const startTrackingWithLaunch = async (): Promise<boolean> => {
     if (isRunning) {
-      console.log("Already tracking/running");
       return true;
     }
 
@@ -96,11 +85,8 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
       setIsRunning(true);
       setIsMonitoring(false);
       startPlaytimeInterval();
-
-      console.log("Started tracking with game launch");
       return true;
     } catch (e) {
-      console.error("Failed to start tracking with launch:", e);
       return false;
     }
   };
@@ -108,17 +94,14 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
   // Smart start: check if process is running, if so monitor, if not launch
   const smartStart = async (): Promise<boolean> => {
     if (isRunning) {
-      console.log("Already tracking");
       return true;
     }
 
     const processRunning = await checkProcessStatus();
 
     if (processRunning) {
-      console.log("Process detected running, starting monitoring");
       return await startMonitoring();
     } else {
-      console.log("Process not running, launching game");
       return await startTrackingWithLaunch();
     }
   };
@@ -143,7 +126,6 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
         const totalPlaytime = tauriPlaytime + manualPlaytime;
         setPlaytime(totalPlaytime);
       } catch (e) {
-        console.error("Failed to get current playtime:", e);
       }
     }, 1000);
   };
@@ -176,12 +158,7 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
         // Calculate final total playtime
         finalPlaytime = tauriPlaytime + manualPlaytime;
         setPlaytime(finalPlaytime);
-
-        console.log(
-          `Stopped tracking, final playtime: ${finalPlaytime}s (${tauriPlaytime}s tracked + ${manualPlaytime}s manual)`
-        );
       } catch (e) {
-        console.error("Failed to stop tracking:", e);
       }
     }
 
@@ -212,12 +189,7 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
       });
       const totalPlaytime = tauriPlaytime + manualSeconds;
       setPlaytime(totalPlaytime);
-
-      console.log(
-        `Set manual playtime: ${manualSeconds}s, total: ${totalPlaytime}s`
-      );
     } catch (e) {
-      console.error("Failed to set manual playtime:", e);
     }
   };
 
@@ -231,9 +203,6 @@ const usePersistentPlaytimeWorkflow = (appid: string, exePath: string) => {
       if (!isRunning) {
         const processRunning = await checkProcessStatus();
         if (processRunning) {
-          console.log(
-            "Detected externally launched process, starting monitoring"
-          );
           await startMonitoring();
         }
       }

@@ -59,7 +59,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   useEffect(() => {
-    console.log("games init", { gameScores, games: getGames() });
   }, [gameScores]);
   // Load profile data and avatar
   useEffect(() => {
@@ -76,35 +75,18 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
             });
             setProfilePicture(avatarData as string);
           } catch (error) {
-            console.warn("Failed to load avatar:", error);
             // Use fallback avatar or keep empty
           }
         }
 
         // Calculate user profile data
         const calculatedProfile = calculateUserProfile();
-        console.log({ calculatedProfile });
         // Get real game scores from your scoring system
         const realGameScores = getLeaderboardData();
-        console.log("🎯 [UserProfile] Leaderboard data received:", {
-          totalScores: realGameScores.length,
-          scores: realGameScores,
-          isEmpty: realGameScores.length === 0,
-        });
-
         // Sort games by score (highest first)
         const sortedGameScores = [...realGameScores].sort(
           (a, b) => (b.totalGameScore || 0) - (a.totalGameScore || 0)
         );
-
-        console.log("🎯 [UserProfile] After sorting:", {
-          sortedCount: sortedGameScores.length,
-          topGames: sortedGameScores.slice(0, 5).map((g) => ({
-            name: g.gameName,
-            score: g.totalGameScore,
-          })),
-        });
-
         // Load images for top games
         const topGames = sortedGameScores.slice(0, 10);
         const imagePromises = topGames.map(async (game) => {
@@ -115,7 +97,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
               const imageData = await invoke("load_image", { path: imagePath });
               return { [game.gameName]: imageData as string };
             } catch (error) {
-              console.warn(`Failed to load image for ${game.gameName}:`, error);
               return { [game.gameName]: "" };
             }
           }
@@ -133,15 +114,7 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
         setGameImages(imageMap);
         setAnimatedScore({ current: 0, target: calculatedProfile.totalScore });
         setIsLoading(false);
-
-        console.log("🎯 [UserProfile] State updated:", {
-          profileSet: !!calculatedProfile,
-          gameScoresSet: sortedGameScores.length,
-          imagesSet: Object.keys(imageMap).length,
-          loadingComplete: true,
-        });
       } catch (error) {
-        console.error("Failed to load profile data:", error);
         toast.error("Failed to load profile data", {
           style: { background: "rgb(185 28 28)" },
         });
@@ -378,30 +351,12 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
-
-    console.log(
-      "🔄 [UserProfile] Starting auto-rotation for",
-      topGamesCount,
-      "games out of",
-      gameScores.length,
-      "total games"
-    );
-
     // Start new interval
     intervalRef.current = setInterval(() => {
       setCurrentGameIndex((prevIndex) => {
         // IMPORTANT: Only rotate through the games that are actually displayed in carousel (max 8)
         // Not all gameScores, just the topGames slice
         const newIndex = prevIndex >= topGamesCount - 1 ? 0 : prevIndex + 1;
-        console.log(
-          "🔄 [UserProfile] Rotating from index",
-          prevIndex,
-          "to",
-          newIndex,
-          "(max index:",
-          topGamesCount - 1,
-          ")"
-        );
         return newIndex;
       });
     }, 3000);

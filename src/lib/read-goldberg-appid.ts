@@ -10,27 +10,16 @@ export async function readGoldbergAppId(
 ): Promise<number | null> {
   try {
     if (!exePath) {
-      console.log("No exe path provided for steam_appid.txt lookup");
       return null;
     }
 
     const gameDir = await path.dirname(exePath);
-    console.log(
-      `🔍 Starting recursive search for steam_settings in: ${gameDir}`
-    );
-
     // Find all steam_settings directories recursively
     const steamSettingsPaths = await findSteamSettingsDirectories(gameDir);
 
     if (steamSettingsPaths.length === 0) {
-      console.log(`❌ No steam_settings directories found in: ${gameDir}`);
       return null;
     }
-
-    console.log(
-      `📁 Found ${steamSettingsPaths.length} steam_settings directories`
-    );
-
     // Search for steam_appid.txt in each steam_settings directory
     for (const settingsPath of steamSettingsPaths) {
       const appId = await searchSteamAppIdInDirectory(settingsPath);
@@ -38,11 +27,8 @@ export async function readGoldbergAppId(
         return appId;
       }
     }
-
-    console.log(`❌ No steam_appid.txt found in any steam_settings directory`);
     return null;
   } catch (error) {
-    console.error("Error reading steam_appid.txt:", error);
     return null;
   }
 }
@@ -74,7 +60,6 @@ async function findSteamSettingsDirectories(
 
         // Check if this directory is named "steam_settings" (case insensitive)
         if (entry.name.toLowerCase() === "steam_settings") {
-          console.log(`✅ Found steam_settings directory: ${entryPath}`);
           steamSettingsPaths.push(entryPath);
         }
 
@@ -89,7 +74,6 @@ async function findSteamSettingsDirectories(
     }
   } catch (error) {
     // If we can't read a directory (permissions, etc.), just skip it
-    console.log(`⚠️ Could not read directory ${rootPath}: ${error}`);
   }
 
   return steamSettingsPaths;
@@ -103,8 +87,6 @@ async function searchSteamAppIdInDirectory(
   maxDepth: number = 5,
   currentDepth: number = 0
 ): Promise<number | null> {
-  console.log(`🔍 Searching for steam_appid.txt in: ${settingsPath}`);
-
   if (currentDepth >= maxDepth) {
     return null;
   }
@@ -113,7 +95,6 @@ async function searchSteamAppIdInDirectory(
     // First check if steam_appid.txt exists directly in this directory
     const directAppIdPath = await path.join(settingsPath, "steam_appid.txt");
     if (await exists(directAppIdPath)) {
-      console.log(`✅ Found steam_appid.txt at: ${directAppIdPath}`);
       return await readAppIdFromFile(directAppIdPath);
     }
 
@@ -123,7 +104,6 @@ async function searchSteamAppIdInDirectory(
     for (const entry of entries) {
       if (entry.isFile && entry.name.toLowerCase() === "steam_appid.txt") {
         const filePath = await path.join(settingsPath, entry.name);
-        console.log(`✅ Found steam_appid.txt at: ${filePath}`);
         return await readAppIdFromFile(filePath);
       } else if (entry.isDirectory) {
         // Recursively search subdirectories
@@ -139,7 +119,6 @@ async function searchSteamAppIdInDirectory(
       }
     }
   } catch (error) {
-    console.log(`⚠️ Could not search in directory ${settingsPath}: ${error}`);
   }
 
   return null;
@@ -154,25 +133,17 @@ async function readAppIdFromFile(filePath: string): Promise<number | null> {
     const trimmed = appIdContent.trim();
 
     if (trimmed === "") {
-      console.warn(`⚠️ steam_appid.txt is empty: ${filePath}`);
       return null;
     }
 
     const extractedAppId = parseInt(trimmed);
 
     if (!isNaN(extractedAppId)) {
-      console.log(
-        `✅ Successfully parsed App ID: ${extractedAppId} from ${filePath}`
-      );
       return extractedAppId;
     } else {
-      console.warn(
-        `⚠️ Invalid App ID in steam_appid.txt: ${trimmed} (${filePath})`
-      );
       return null;
     }
   } catch (error) {
-    console.error(`❌ Failed to read steam_appid.txt from ${filePath}:`, error);
     return null;
   }
 }
@@ -183,12 +154,6 @@ async function readAppIdFromFile(filePath: string): Promise<number | null> {
 export async function findAllSteamSettingsPaths(
   gamePath: string
 ): Promise<string[]> {
-  console.log(
-    `🔍 Searching for all steam_settings directories in: ${gamePath}`
-  );
-
   const paths = await findSteamSettingsDirectories(gamePath);
-
-  console.log(`📁 Found ${paths.length} steam_settings directories:`, paths);
   return paths;
 }

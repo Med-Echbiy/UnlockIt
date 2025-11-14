@@ -39,7 +39,6 @@ async function findTenokeConfigRecursive(
 
     return null;
   } catch (e) {
-    console.log(`⚠️ Could not search in directory ${dir}: ${e}`);
     return null;
   }
 }
@@ -53,7 +52,6 @@ async function findTenokeConfigRecursive(
  */
 async function parseTenokeConfig(filePath: string): Promise<number | null> {
   try {
-    console.log(`🔍 Reading TENOKE config from: ${filePath}`);
     const content = await readTextFile(filePath);
 
     // Split content into lines
@@ -89,19 +87,13 @@ async function parseTenokeConfig(filePath: string): Promise<number | null> {
         if (idMatch) {
           const appId = parseInt(idMatch[1]);
           if (!isNaN(appId)) {
-            console.log(
-              `✅ Successfully parsed TENOKE App ID: ${appId} from ${filePath}`
-            );
             return appId;
           }
         }
       }
     }
-
-    console.warn(`⚠️ No valid App ID found in TENOKE config: ${filePath}`);
     return null;
   } catch (error) {
-    console.error(`❌ Failed to read TENOKE config from ${filePath}:`, error);
     return null;
   }
 }
@@ -115,12 +107,8 @@ export async function extractAppIdFromTenokeConfig(
 ): Promise<number | null> {
   try {
     if (!gameDir) {
-      console.log("No game directory provided for TENOKE config lookup");
       return null;
     }
-
-    console.log(`🔍 Starting search for TENOKE config in: ${gameDir}`);
-
     // First try direct lookup in the game directory
     const directConfigFiles = ["TENOKE.ini", "tenoke.ini"];
 
@@ -141,11 +129,8 @@ export async function extractAppIdFromTenokeConfig(
     if (foundConfigPath) {
       return await parseTenokeConfig(foundConfigPath);
     }
-
-    console.log(`❌ No TENOKE config files found in: ${gameDir}`);
     return null;
   } catch (error) {
-    console.error("Error reading TENOKE config:", error);
     return null;
   }
 }
@@ -183,6 +168,5 @@ export async function findAllTenokeConfigPaths(
   }
 
   await searchRecursively(gamePath);
-  console.log(`📁 Found ${configs.length} TENOKE config files:`, configs);
   return configs;
 }

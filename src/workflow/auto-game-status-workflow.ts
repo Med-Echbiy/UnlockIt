@@ -29,7 +29,6 @@ const useAutoGameStatusWorkflow = () => {
           hasPlaytime = true;
         }
       } catch (e) {
-        console.log("No Tauri playtime data found");
       }
 
       // Check manual playtime
@@ -46,13 +45,9 @@ const useAutoGameStatusWorkflow = () => {
 
       // Auto-update status to "played" if there's playtime or unlocked achievements
       if (hasPlaytime || hasUnlockedAchievements) {
-        console.log(
-          `Auto-updating game ${appId} status to "played" - hasPlaytime: ${hasPlaytime}, hasAchievements: ${hasUnlockedAchievements}`
-        );
         await setGameStatus(appId, "played");
       }
     } catch (error) {
-      console.error("Failed to check and update game status:", error);
     }
   };
 

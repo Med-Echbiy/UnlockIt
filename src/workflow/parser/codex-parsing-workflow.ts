@@ -18,10 +18,6 @@ const useCodexParserWorkflow = ({
         const foundFiles: { filePath: string; location: string }[] = [];
 
         try {
-          console.log(
-            `Searching for Codex achievements.ini files for app ID: ${app_id}`
-          );
-
           // First location: Public Documents folder
           const publicPath = await path.publicDir();
           const publicCodexPath = await path.join(
@@ -35,10 +31,7 @@ const useCodexParserWorkflow = ({
             publicCodexPath,
             "achievements.ini"
           );
-
-          console.log(`Checking public location: ${publicFilePath}`);
           if (await exists(publicFilePath)) {
-            console.log(`✅ Found Codex achievements.ini in public folder`);
             foundFiles.push({
               filePath: publicFilePath,
               location: "Public Documents",
@@ -58,10 +51,7 @@ const useCodexParserWorkflow = ({
             roamingCodexPath,
             "achievements.ini"
           );
-
-          console.log(`Checking AppData Roaming location: ${roamingFilePath}`);
           if (await exists(roamingFilePath)) {
-            console.log(`✅ Found Codex achievements.ini in AppData Roaming`);
             foundFiles.push({
               filePath: roamingFilePath,
               location: "AppData Roaming",
@@ -69,18 +59,10 @@ const useCodexParserWorkflow = ({
           }
 
           if (foundFiles.length === 0) {
-            console.log(
-              `❌ No Codex achievements.ini found for app ${app_id} in either location`
-            );
             return null;
           }
-
-          console.log(
-            `Found ${foundFiles.length} Codex file(s) for app ${app_id}`
-          );
           return foundFiles;
         } catch (error) {
-          console.error("Error searching for Codex files:", error);
           return null;
         }
       };
@@ -94,24 +76,16 @@ const useCodexParserWorkflow = ({
 
       for (const fileInfo of codexFiles) {
         try {
-          console.log(
-            `Reading Codex file from ${fileInfo.location}: ${fileInfo.filePath}`
-          );
           const fileContent = new TextDecoder().decode(
             await readFile(fileInfo.filePath)
           );
           const parsedData = parsingLogic(fileContent);
-
-          console.log(
-            `Found ${parsedData.length} achievements in ${fileInfo.location}`
-          );
           allAchievements.push(...parsedData);
           processedFiles.push(fileInfo.filePath);
 
           // Track this file for monitoring
           await saveToTrackList(app_id, fileInfo.filePath);
         } catch (error) {
-          console.error(`Error reading file from ${fileInfo.location}:`, error);
         }
       }
 
@@ -129,28 +103,42 @@ const useCodexParserWorkflow = ({
       }
 
       const combinedResults = Array.from(uniqueAchievements.values());
-      console.log(
-        `Combined results: ${combinedResults.length} unique achievements from ${processedFiles.length} file(s)`
-      );
-
       return combinedResults;
     } catch (error) {
-      console.error("Error parsing Codex folders:", error);
       return false;
     }
   }
   function parsingLogic(content: string) {
     const achievementEntries: { name: string; achievedAt: number }[] = [];
-    const entryRegex =
-      /\[([^\]\n]+)\][^\[]*?Achieved=1[^\[]*?UnlockTime=(\d+)/gi;
+
+    // Updated regex to handle achievements with or without UnlockTime
+    const entryRegex = /\[([^\]\n]+)\][^\[]*?Achieved=1/gi;
     let match;
+
     while ((match = entryRegex.exec(content)) !== null) {
-      if (match[1].toLowerCase() === "steamachievements") continue;
+      const achievementName = match[1];
+      if (achievementName.toLowerCase() === "steamachievements") continue;
+
+      // Extract the full achievement section
+      const startIndex = match.index;
+      const nextBracketIndex = content.indexOf("[", startIndex + 1);
+      const section = content.substring(
+        startIndex,
+        nextBracketIndex === -1 ? content.length : nextBracketIndex
+      );
+
+      // Try to extract UnlockTime if it exists
+      const unlockTimeMatch = section.match(/UnlockTime=(\d+)/i);
+      const unlockTime = unlockTimeMatch
+        ? Number(unlockTimeMatch[1])
+        : Math.floor(Date.now() / 1000);
+
       achievementEntries.push({
-        name: match[1],
-        achievedAt: Number(match[2]),
+        name: achievementName,
+        achievedAt: unlockTime,
       });
     }
+
     return achievementEntries;
   }
   return { parseCodexFolder };

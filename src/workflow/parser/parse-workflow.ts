@@ -34,8 +34,6 @@ const useParsingWorkflow = ({
     app_id: number = appid,
     exe_path: string = exePath
   ) {
-    console.log(`Parsing achievements...${app_id}, ${exe_path}`);
-
     // Parse all emulator types in parallel for better performance
     const [
       Type_ALI213,
@@ -83,7 +81,6 @@ const useParsingWorkflow = ({
       await achievementsStore.get(`achievements_${app_id}`);
 
     if (!currentAchievementData) {
-      console.error("No achievement data found in Tauri store");
       return false;
     }
 

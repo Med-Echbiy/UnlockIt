@@ -44,16 +44,35 @@ const useRuneParserWorkflow = ({
   }
   function parsingLogic(content: string) {
     const achievementEntries: { name: string; achievedAt: number }[] = [];
-    const entryRegex =
-      /\[([^\]\n]+)\][^\[]*?Achieved=1[^\[]*?UnlockTime=(\d+)/gi;
+
+    // Updated regex to handle achievements with or without UnlockTime
+    const entryRegex = /\[([^\]\n]+)\][^\[]*?Achieved=1/gi;
     let match;
+
     while ((match = entryRegex.exec(content)) !== null) {
-      if (match[1].toLowerCase() === "steamachievements") continue;
+      const achievementName = match[1];
+      if (achievementName.toLowerCase() === "steamachievements") continue;
+
+      // Extract the full achievement section
+      const startIndex = match.index;
+      const nextBracketIndex = content.indexOf("[", startIndex + 1);
+      const section = content.substring(
+        startIndex,
+        nextBracketIndex === -1 ? content.length : nextBracketIndex
+      );
+
+      // Try to extract UnlockTime if it exists
+      const unlockTimeMatch = section.match(/UnlockTime=(\d+)/i);
+      const unlockTime = unlockTimeMatch
+        ? Number(unlockTimeMatch[1])
+        : Math.floor(Date.now() / 1000);
+
       achievementEntries.push({
-        name: match[1],
-        achievedAt: Number(match[2]),
+        name: achievementName,
+        achievedAt: unlockTime,
       });
     }
+
     return achievementEntries;
   }
   return { parseRuneFolder };

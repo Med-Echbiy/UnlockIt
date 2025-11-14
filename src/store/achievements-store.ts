@@ -50,14 +50,7 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
         achievements: state.achievements.map((ach) =>
           Number(ach.gameId) === Number(id) ? { ...ach, ...data } : ach
         ),
-      })),
-        console.log("Updated Achievement:", {
-          data,
-          id,
-          existing: get().achievements.find(
-            (ach) => Number(ach.gameId) === Number(id)
-          ),
-        });
+      }));
     },
     resetAchievementsBasedOnAppid: (appid: number) => {
       set((state) => ({
@@ -93,11 +86,6 @@ const useAchievementsStore = create<AchievementsStore>((set, get) => {
           { appid, filePath },
         ],
       }));
-      console.log("Added tracked file:", {
-        appid,
-        filePath,
-        current: get().trackAchievementsFiles,
-      });
       return get().trackAchievementsFiles;
     },
 

@@ -7,6 +7,7 @@ export interface GameStoreData {
   header_image: string;
   background: string;
   background_raw: string;
+  igdb_cover?: string | null; // IGDB box art cover (portrait/vertical format)
   developers: string[];
   release_date: {
     coming_soon: boolean;

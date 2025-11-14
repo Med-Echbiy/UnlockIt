@@ -20,7 +20,6 @@ const useRemoveGameWorkflow = () => {
 
       return true;
     } catch (error) {
-      console.error("Failed to remove game:", error);
       toast.error("Failed to remove game", {
         description: "An error occurred while removing the game.",
         style: {

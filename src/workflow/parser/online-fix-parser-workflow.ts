@@ -24,7 +24,6 @@ const useOnlineFixParserWorkflow = ({
             app_id.toString()
           );
         } catch (error) {
-          console.error(error);
           return false;
         }
       };
@@ -44,21 +43,39 @@ const useOnlineFixParserWorkflow = ({
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {
-      console.error(error);
       return false;
     }
   }
   function parsingLogic(content: string) {
     const achievementEntries: { name: string; achievedAt: number }[] = [];
-    const entryRegex =
-      /\[([^\]\n]+)\][^\[]*?achieved\s*=\s*true[^\[]*?timestamp\s*=\s*(\d+)/gi;
+
+    // Updated regex to handle achievements with or without timestamp
+    const entryRegex = /\[([^\]\n]+)\][^\[]*?achieved\s*=\s*true/gi;
     let match;
+
     while ((match = entryRegex.exec(content)) !== null) {
+      const achievementName = match[1];
+
+      // Extract the full achievement section
+      const startIndex = match.index;
+      const nextBracketIndex = content.indexOf("[", startIndex + 1);
+      const section = content.substring(
+        startIndex,
+        nextBracketIndex === -1 ? content.length : nextBracketIndex
+      );
+
+      // Try to extract timestamp if it exists
+      const timestampMatch = section.match(/timestamp\s*=\s*(\d+)/i);
+      const timestamp = timestampMatch
+        ? Number(timestampMatch[1])
+        : Math.floor(Date.now() / 1000);
+
       achievementEntries.push({
-        name: match[1],
-        achievedAt: Number(match[2]),
+        name: achievementName,
+        achievedAt: timestamp,
       });
     }
+
     return achievementEntries;
   }
   return { parseOnlineFixFolder };

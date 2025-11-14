@@ -25,10 +25,6 @@ const useGoldbergParserWorkflow = ({
         const foundFiles: { filePath: string; location: string }[] = [];
 
         try {
-          console.log(
-            `Searching for Goldberg SteamEmu files for app ID: ${app_id}`
-          );
-
           // NOTE: We skip checking game directory steam_settings folder here
           // because we already extracted the app ID from steam_appid.txt above.
           // The steam_settings/achievements.json is just definitions, not tracking data.
@@ -49,22 +45,12 @@ const useGoldbergParserWorkflow = ({
             "Goldberg SteamEmu Saves",
             app_id.toString()
           );
-
-          console.log(`Home dir: ${homeDir}`);
-          console.log(`Roaming path: ${roamingPath}`);
-          console.log(`Checking GSE location: ${gsePath}`);
-          console.log(`Checking Goldberg location: ${goldbergPath}`);
-
           // Check both possible locations (GSE Saves first as it's more common)
           const possiblePaths = [gsePath, goldbergPath];
 
           for (const checkPath of possiblePaths) {
-            console.log(`Checking if path exists: ${checkPath}`);
             const pathExists = await exists(checkPath);
-            console.log(`Path exists: ${pathExists}`);
-
             if (pathExists) {
-              console.log(`✅ Found Goldberg directory: ${checkPath}`);
               // Look for various achievement files that Goldberg might use
               const achievementFiles = [
                 "achievements.json", // Most common format
@@ -81,14 +67,8 @@ const useGoldbergParserWorkflow = ({
 
               for (const fileName of achievementFiles) {
                 const fullFilePath = await path.join(checkPath, fileName);
-                console.log(`Checking file: ${fullFilePath}`);
                 const fileExists = await exists(fullFilePath);
-                console.log(`File exists: ${fileExists}`);
-
                 if (fileExists) {
-                  console.log(
-                    `✅ Found Goldberg achievement file: ${fileName} in ${checkPath}`
-                  );
                   foundFiles.push({
                     filePath: fullFilePath,
                     location: `Goldberg SteamEmu (${fileName})`,
@@ -106,9 +86,6 @@ const useGoldbergParserWorkflow = ({
             "remote",
             app_id.toString()
           );
-
-          console.log(`Checking EMPRESS location: ${empressPath}`);
-
           if (await exists(empressPath)) {
             const achievementFiles = [
               "achievements.ini",
@@ -120,7 +97,6 @@ const useGoldbergParserWorkflow = ({
             for (const fileName of achievementFiles) {
               const fullFilePath = await path.join(empressPath, fileName);
               if (await exists(fullFilePath)) {
-                console.log(`✅ Found EMPRESS achievement file: ${fileName}`);
                 foundFiles.push({
                   filePath: fullFilePath,
                   location: `Goldberg EMPRESS (${fileName})`,
@@ -139,9 +115,6 @@ const useGoldbergParserWorkflow = ({
             "remote",
             app_id.toString()
           );
-
-          console.log(`Checking Public EMPRESS location: ${publicEmpressPath}`);
-
           if (await exists(publicEmpressPath)) {
             const achievementFiles = [
               "achievements.ini",
@@ -153,9 +126,6 @@ const useGoldbergParserWorkflow = ({
             for (const fileName of achievementFiles) {
               const fullFilePath = await path.join(publicEmpressPath, fileName);
               if (await exists(fullFilePath)) {
-                console.log(
-                  `✅ Found Public EMPRESS achievement file: ${fileName}`
-                );
                 foundFiles.push({
                   filePath: fullFilePath,
                   location: `Public EMPRESS (${fileName})`,
@@ -166,18 +136,10 @@ const useGoldbergParserWorkflow = ({
           }
 
           if (foundFiles.length === 0) {
-            console.log(
-              `❌ No Goldberg achievement files found for app ${app_id} in any location`
-            );
             return null;
           }
-
-          console.log(
-            `Found ${foundFiles.length} Goldberg file(s) for app ${app_id}`
-          );
           return foundFiles;
         } catch (error) {
-          console.error("Error searching for Goldberg files:", error);
           return null;
         }
       };
@@ -191,9 +153,6 @@ const useGoldbergParserWorkflow = ({
 
       for (const fileInfo of goldbergFiles) {
         try {
-          console.log(
-            `Reading Goldberg file from ${fileInfo.location}: ${fileInfo.filePath}`
-          );
           const fileContent = new TextDecoder().decode(
             await readFile(fileInfo.filePath)
           );
@@ -208,20 +167,14 @@ const useGoldbergParserWorkflow = ({
             parsedData = parseGoldbergIni(fileContent);
           } else if (fileName.endsWith(".bin")) {
             // For now, skip binary files - would need special handling
-            console.log(`Skipping binary file: ${fileInfo.filePath}`);
             continue;
           }
-
-          console.log(
-            `Found ${parsedData.length} achievements in ${fileInfo.location}`
-          );
           allAchievements.push(...parsedData);
           processedFiles.push(fileInfo.filePath);
 
           // Track this file for monitoring
           await saveToTrackList(app_id, fileInfo.filePath);
         } catch (error) {
-          console.error(`Error reading file from ${fileInfo.location}:`, error);
         }
       }
 
@@ -239,13 +192,8 @@ const useGoldbergParserWorkflow = ({
       }
 
       const combinedResults = Array.from(uniqueAchievements.values());
-      console.log(
-        `Combined Goldberg results: ${combinedResults.length} unique achievements from ${processedFiles.length} file(s)`
-      );
-
       return combinedResults;
     } catch (error) {
-      console.error("Error parsing Goldberg folders:", error);
       return false;
     }
   }
@@ -264,9 +212,6 @@ const useGoldbergParserWorkflow = ({
         !Array.isArray(data) &&
         !data.achievements
       ) {
-        console.log(
-          "Parsing GSE Saves achievements.json format (object with achievement keys)"
-        );
         for (const [achievementName, achData] of Object.entries(data)) {
           const achievement = achData as any;
 
@@ -277,9 +222,6 @@ const useGoldbergParserWorkflow = ({
               name: achievementName,
               achievedAt: Number(unlockTime),
             });
-            console.log(
-              `Found unlocked achievement: ${achievementName} at ${unlockTime}`
-            );
           }
         }
         return achievements;
@@ -288,9 +230,6 @@ const useGoldbergParserWorkflow = ({
       // Handle steam_settings/achievements.json format (array of achievement objects)
       // NOTE: This is typically just definitions, not unlock tracking
       if (Array.isArray(data)) {
-        console.log(
-          "Parsing steam_settings achievements.json format (array) - definitions only"
-        );
         for (const achievement of data) {
           // Check if hidden is false (unlocked in some Goldberg setups)
           if (achievement.name && achievement.hidden === false) {
@@ -305,7 +244,6 @@ const useGoldbergParserWorkflow = ({
 
       // Handle standard Goldberg JSON format (object with achievements property)
       if (data.achievements) {
-        console.log("Parsing standard Goldberg achievements format (object)");
         for (const [name, achData] of Object.entries(data.achievements)) {
           const achievement = achData as any;
           if (
@@ -325,13 +263,8 @@ const useGoldbergParserWorkflow = ({
           }
         }
       }
-
-      console.log(
-        `Parsed ${achievements.length} unlocked achievements from JSON`
-      );
       return achievements;
     } catch (error) {
-      console.error("Error parsing Goldberg JSON:", error);
       return [];
     }
   }
@@ -343,40 +276,81 @@ const useGoldbergParserWorkflow = ({
     const achievements: { name: string; achievedAt: number }[] = [];
 
     try {
-      // Multiple patterns for different Goldberg INI formats
-      const patterns = [
-        // Standard Goldberg format: [ACHIEVEMENT_NAME] with Achieved=1 and UnlockTime=timestamp
-        /\[([^\]\n]+)\][^\[]*?(?:Achieved|achieved|unlocked)=(?:1|true)[^\[]*?(?:UnlockTime|unlocktime|unlock_time)=(\d+)/gi,
-        // Alternative format with different field names
-        /\[([^\]\n]+)\][^\[]*?(?:State|state)=(?:1|true)[^\[]*?(?:Time|time)=(\d+)/gi,
-        // Simple format with just achievement name and timestamp
-        /([^=\n]+)=(\d+)/g,
-      ];
+      // Pattern 1: Check for achievements with Achieved=1 (with or without UnlockTime)
+      const achievedPattern =
+        /\[([^\]\n]+)\][^\[]*?(?:Achieved|achieved|unlocked)=(?:1|true)/gi;
+      let match;
 
-      for (const pattern of patterns) {
-        let match;
-        while ((match = pattern.exec(content)) !== null) {
-          // Skip common section headers
-          if (
-            match[1] &&
-            !["SteamAchievements", "Steam64", "Steam", "ACHIEVE_DATA"].includes(
-              match[1]
-            )
-          ) {
-            achievements.push({
-              name: match[1].trim(),
-              achievedAt: Number(match[2]),
-            });
-          }
+      while ((match = achievedPattern.exec(content)) !== null) {
+        const achievementName = match[1];
+
+        // Skip common section headers
+        if (
+          ["SteamAchievements", "Steam64", "Steam", "ACHIEVE_DATA"].includes(
+            achievementName
+          )
+        ) {
+          continue;
         }
 
-        // If we found achievements with the current pattern, use them
-        if (achievements.length > 0) break;
+        // Extract the full achievement section
+        const startIndex = match.index;
+        const nextBracketIndex = content.indexOf("[", startIndex + 1);
+        const section = content.substring(
+          startIndex,
+          nextBracketIndex === -1 ? content.length : nextBracketIndex
+        );
+
+        // Try to extract UnlockTime if it exists (check multiple variations)
+        const unlockTimeMatch = section.match(
+          /(?:UnlockTime|unlocktime|unlock_time|Time|time)=(\d+)/i
+        );
+        const unlockTime = unlockTimeMatch
+          ? Number(unlockTimeMatch[1])
+          : Math.floor(Date.now() / 1000);
+
+        achievements.push({
+          name: achievementName.trim(),
+          achievedAt: unlockTime,
+        });
+      }
+
+      // If no achievements found with Pattern 1, try alternative formats
+      if (achievements.length === 0) {
+        const patterns = [
+          // Alternative format with State field
+          /\[([^\]\n]+)\][^\[]*?(?:State|state)=(?:1|true)[^\[]*?(?:Time|time)=(\d+)/gi,
+          // Simple format with just achievement name and timestamp
+          /([^=\n]+)=(\d+)/g,
+        ];
+
+        for (const pattern of patterns) {
+          let altMatch;
+          while ((altMatch = pattern.exec(content)) !== null) {
+            // Skip common section headers
+            if (
+              altMatch[1] &&
+              ![
+                "SteamAchievements",
+                "Steam64",
+                "Steam",
+                "ACHIEVE_DATA",
+              ].includes(altMatch[1])
+            ) {
+              achievements.push({
+                name: altMatch[1].trim(),
+                achievedAt: Number(altMatch[2]),
+              });
+            }
+          }
+
+          // If we found achievements with the current pattern, use them
+          if (achievements.length > 0) break;
+        }
       }
 
       return achievements;
     } catch (error) {
-      console.error("Error parsing Goldberg INI:", error);
       return [];
     }
   }

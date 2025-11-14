@@ -27,10 +27,6 @@ const useTrackingWorkflow = () => {
           audioSrc = convertFileSrc(resourcePath);
         } catch (resourceError) {
           // Fallback to direct file conversion if resource resolution fails
-          console.warn(
-            "Resource resolution failed, trying direct path:",
-            resourceError
-          );
           audioSrc = convertFileSrc(soundFile);
         }
       } else {
@@ -38,12 +34,11 @@ const useTrackingWorkflow = () => {
         audioSrc = `/${soundFile}`;
       }
 
-      console.log("Playing notification sound from:", audioSrc);
       const audio = new Audio(audioSrc);
       audio.volume = 1;
       await audio.play();
     } catch (error) {
-      console.warn("Failed to play notification sound:", error);
+      // Failed to play notification sound
     }
   };
   const { getGameById } = useMyGamesStore();
@@ -66,47 +61,33 @@ const useTrackingWorkflow = () => {
       getPaths.length > 0 &&
       (pathsString !== currentPaths.current || !isWatcherSetup.current)
     ) {
-      console.log("Setting up new file watcher...");
-
       currentPaths.current = pathsString;
       isWatcherSetup.current = true;
 
-      console.log("Invoking track_files with paths:", getPaths);
       invoke("track_files", { paths: Array.from(new Set(getPaths)) })
         .then(() => {
-          console.log("track_files invoked successfully");
+          // track_files invoked successfully
         })
-        .catch((error) => {
-          console.error("Error invoking track_files:", error);
+        .catch(() => {
           isWatcherSetup.current = false;
         });
     } else if (getPaths.length === 0) {
-      console.log("No paths to track - getPaths is empty");
       isWatcherSetup.current = false;
       currentPaths.current = "";
-    } else {
-      console.log("Watcher already setup for these paths, skipping...");
     }
   }, [trackAchievementsFiles.length]);
   useEffect(() => {
     if (eventListenerSetup.current) {
-      console.log("Event listener already setup, skipping...");
       return;
     }
 
-    console.log("Setting up file-change event listener...");
     eventListenerSetup.current = true;
 
     const unlisten = listen("file-change", (event) => {
-      console.log("=== FILE CHANGE EVENT RECEIVED ===");
-      console.log("Full event object:", event);
-      console.log("Event payload:", event.payload);
-
       // Debounce mechanism - prevent processing events too quickly
       const now = Date.now();
       if (now - lastProcessedTime.current < 1000) {
         // 1 second debounce
-        console.log("Event ignored due to debounce mechanism");
         return;
       }
 
@@ -117,78 +98,40 @@ const useTrackingWorkflow = () => {
         content: string;
       };
 
-      console.log("Typed payload:", payload);
-      console.log("Looking for game based on path:", payload.path);
-
       const game = getGameBasedOnPath(payload.path);
-      console.log("Found game:", game);
 
       if (game) {
         const { appId, exePath } = game;
-        console.log("Game details - appId:", appId, "exePath:", exePath);
-        console.log(
-          "🔍 DEBUG: Checking added_lines length:",
-          payload.added_lines?.length
-        );
-        console.log("🔍 DEBUG: added_lines content:", payload.added_lines);
         if (payload.added_lines && payload.added_lines.length > 0) {
-          console.log("Processing achievement changes for game:", game.name);
-          console.log("Added lines:", payload.added_lines);
           const achievementNames = new Set<string>();
+          const seenInThisEvent = new Set<string>(); // Track duplicates within this event only
 
           payload.added_lines.forEach((line) => {
-            console.log("Processing line:", line);
-            console.log("Line type:", typeof line);
-            console.log("Line length:", line.length);
             const achievementRegex = /\[(.+?)\]/g;
             let match;
 
             while ((match = achievementRegex.exec(line)) !== null) {
-              console.log("Full match:", match);
               const achievementName = match[1].trim();
-              console.log("Raw match found:", match[1]);
-              console.log("Trimmed achievement name:", achievementName);
 
               if (achievementName) {
                 // Create a unique key for this achievement in this game
                 const achievementKey = `${appId}_${achievementName}`;
 
-                // Only add if not already processed recently
-                if (!processedAchievements.current.has(achievementKey)) {
-                  achievementNames.add(achievementName);
-                  processedAchievements.current.add(achievementKey);
-                  console.log("Added new achievement to set:", achievementName);
-                } else {
-                  console.log(
-                    "Achievement already processed recently, skipping:",
-                    achievementName
-                  );
+                // Only skip if we've seen it in THIS event (handles duplicate lines from Rust)
+                if (!seenInThisEvent.has(achievementKey)) {
+                  // Check if we processed this recently (within debounce window)
+                  if (!processedAchievements.current.has(achievementKey)) {
+                    achievementNames.add(achievementName);
+                    processedAchievements.current.add(achievementKey);
+                    seenInThisEvent.add(achievementKey);
+                  }
                 }
               }
             }
-            if (line.includes("[") && line.includes("]")) {
-              console.log("Line contains brackets - manual check passed");
-              const manualMatch = line.match(/\[(.+?)\]/);
-              if (manualMatch) {
-                console.log("Manual regex match found:", manualMatch[1]);
-              } else {
-                console.log("Manual regex match failed");
-              }
-            } else {
-              console.log("Line does not contain brackets");
-            }
           });
-
-          console.log(
-            "Unique achievement names found:",
-            Array.from(achievementNames)
-          );
 
           // Check if TENOKE format achievements were added (if bracket regex found nothing)
           if (achievementNames.size === 0) {
-            console.log(
-              "No bracket-format achievements found, checking for TENOKE format..."
-            );
             const handledByTenokeDetection = detectTenokeAchievementAdditions(
               payload.added_lines,
               appId,
@@ -197,7 +140,6 @@ const useTrackingWorkflow = () => {
             );
 
             if (handledByTenokeDetection) {
-              console.log("✅ TENOKE addition detection handled the event");
               return; // Exit early - TENOKE function already triggered notifications
             }
           }
@@ -205,9 +147,6 @@ const useTrackingWorkflow = () => {
           if (achievementNames.size > 0) {
             // Prevent concurrent notification processing
             if (isProcessingNotification.current) {
-              console.log(
-                "Already processing notifications, skipping this batch"
-              );
               return;
             }
 
@@ -244,19 +183,7 @@ const useTrackingWorkflow = () => {
                         ach.achievedAt !== "0" &&
                         ach.achievedAt !== ""
                     ); // Only include actually unlocked achievements
-
-                  console.log(
-                    "Found matching achievements:",
-                    unlockedAchievements.map((a) => ({
-                      name: a?.name,
-                      displayName: a?.displayName,
-                      achievedAt: a?.achievedAt,
-                    }))
-                  );
-
                   if (unlockedAchievements.length > 0) {
-                    console.log("🎉 NEW ACHIEVEMENTS UNLOCKED!");
-
                     // Show web toast notification ONCE for all achievements
                     toast(
                       `${unlockedAchievements.length} new achievement${
@@ -273,16 +200,7 @@ const useTrackingWorkflow = () => {
                     // Play sound ONCE for all achievements
                     try {
                       const soundPath = getProfile().notificationSound;
-                      console.log("=== SOUND DEBUG ===");
-                      console.log("Sound path from profile:", soundPath);
-                      console.log("Sound path type:", typeof soundPath);
-                      console.log(
-                        "Sound path exists:",
-                        soundPath ? "Yes" : "No"
-                      );
-
                       if (soundPath) {
-                        console.log("Attempting to play notification sound...");
                         await playNotificationSound(soundPath);
                       }
 
@@ -294,13 +212,6 @@ const useTrackingWorkflow = () => {
                             firstAchievement?.name ||
                             "Achievement Unlocked"
                           : `${unlockedAchievements.length} Achievements Unlocked!`;
-
-                      console.log(
-                        "Showing single native notification for",
-                        unlockedAchievements.length,
-                        "achievements"
-                      );
-
                       await invoke("toast_notification", {
                         iconPath:
                           firstAchievement?.icon || game.header_image || "",
@@ -312,36 +223,26 @@ const useTrackingWorkflow = () => {
                         isRare: false,
                       });
                     } catch (error) {
-                      console.error("Failed to send notification:", error);
                     } finally {
                       // Reset processing flag
                       isProcessingNotification.current = false;
                     }
                   } else {
-                    console.log("No newly unlocked achievements found");
                     isProcessingNotification.current = false;
                   }
                 } else {
-                  console.log("No achievement data available in store");
                   isProcessingNotification.current = false;
                 }
               })
-              .catch((error) => {
-                console.error("Error parsing achievements:", error);
+              .catch(() => {
                 isProcessingNotification.current = false; // Reset flag on error
               });
           } else {
-            console.log("No achievement patterns found in added lines");
           }
         } else {
           // No new lines added, but check if content changed (for JSON modifications like GSE Saves)
-          console.log("No new lines added, checking for content changes...");
-
           if (payload.content && payload.content.length > 0) {
             // NEW: Try JSON state change detection FIRST (10-second window, immediate detection)
-            console.log(
-              "🎯 Attempting JSON state change detection for earned=false→true cases..."
-            );
             const handledByJsonDetection = detectJsonAchievementStateChanges(
               payload.content,
               appId,
@@ -350,26 +251,11 @@ const useTrackingWorkflow = () => {
             );
 
             if (handledByJsonDetection) {
-              console.log(
-                "✅ JSON state change detection handled the event, skipping fallback"
-              );
               return; // Exit early - no need for the 30-second fallback
             }
-
-            console.log(
-              "No recent JSON state changes detected, falling back to 30-second window check..."
-            );
-
             // ORIGINAL FALLBACK CODE (30-second window) - only runs if JSON detection found nothing
-            console.log(
-              "Content available, processing full content for changes"
-            );
-
             // Prevent concurrent notification processing
             if (isProcessingNotification.current) {
-              console.log(
-                "Already processing notifications, skipping this batch"
-              );
               return;
             }
 
@@ -406,22 +292,7 @@ const useTrackingWorkflow = () => {
                       );
                     }
                   );
-
-                  console.log(
-                    "Found recently unlocked achievements:",
-                    recentlyUnlockedAchievements.map((a) => ({
-                      name: a?.name,
-                      displayName: a?.displayName,
-                      achievedAt: a?.achievedAt,
-                      timeDiff: now - parseInt(a?.achievedAt || "0"),
-                    }))
-                  );
-
                   if (recentlyUnlockedAchievements.length > 0) {
-                    console.log(
-                      "🎉 NEW ACHIEVEMENTS UNLOCKED (from content change)!"
-                    );
-
                     // Show web toast notification ONCE for all achievements
                     toast(
                       `${recentlyUnlockedAchievements.length} new achievement${
@@ -438,11 +309,7 @@ const useTrackingWorkflow = () => {
                     // Play sound ONCE for all achievements
                     try {
                       const soundPath = getProfile().notificationSound;
-                      console.log("=== SOUND DEBUG ===");
-                      console.log("Sound path from profile:", soundPath);
-
                       if (soundPath) {
-                        console.log("Attempting to play notification sound...");
                         await playNotificationSound(soundPath);
                       }
 
@@ -454,13 +321,6 @@ const useTrackingWorkflow = () => {
                             firstAchievement?.name ||
                             "Achievement Unlocked"
                           : `${recentlyUnlockedAchievements.length} Achievements Unlocked!`;
-
-                      console.log(
-                        "Showing single native notification for",
-                        recentlyUnlockedAchievements.length,
-                        "achievements (content change detection)"
-                      );
-
                       await invoke("toast_notification", {
                         iconPath:
                           firstAchievement?.icon || game.header_image || "",
@@ -472,47 +332,33 @@ const useTrackingWorkflow = () => {
                         isRare: false,
                       });
                     } catch (error) {
-                      console.error("Failed to send notification:", error);
                     } finally {
                       // Reset processing flag
                       isProcessingNotification.current = false;
                     }
                   } else {
-                    console.log(
-                      "No recently unlocked achievements found in content"
-                    );
                     isProcessingNotification.current = false;
                   }
                 } else {
-                  console.log("No achievement data available in store");
                   isProcessingNotification.current = false;
                 }
               })
-              .catch((error) => {
-                console.error(
-                  "Error parsing achievements from content:",
-                  error
-                );
+              .catch(() => {
                 isProcessingNotification.current = false; // Reset flag on error
               });
           } else {
-            console.log("No content available, skipping achievement check");
           }
         }
       }
     });
 
     return () => {
-      console.log(
-        "Event listener cleanup - unregistering file-change listener"
-      );
       eventListenerSetup.current = false;
       unlisten.then((fn) => fn());
     };
   }, []); // Empty dependency array - setup listener only once
   useEffect(() => {
     return () => {
-      console.log("TrackingWorkflow component unmounting - cleaning up");
       isWatcherSetup.current = false;
       currentPaths.current = "";
       eventListenerSetup.current = false;
@@ -524,7 +370,6 @@ const useTrackingWorkflow = () => {
   // Clear old processed achievements every 5 minutes to prevent memory leaks
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
-      console.log("Clearing processed achievements cache");
       processedAchievements.current.clear();
     }, 5 * 60 * 1000); // 5 minutes
 
@@ -543,8 +388,6 @@ const useTrackingWorkflow = () => {
     game: any
   ): boolean {
     try {
-      console.log("🔍 Checking for TENOKE achievement additions...");
-
       const newlyUnlockedAchievements: string[] = [];
 
       for (const line of addedLines) {
@@ -568,9 +411,6 @@ const useTrackingWorkflow = () => {
 
             // Only detect achievements unlocked in the last 10 seconds
             if (timeDiff <= 10 && !isNaN(unlockTime) && unlockTime > 0) {
-              console.log(
-                `✅ Found TENOKE achievement addition: ${achievementName} (${timeDiff}s ago)`
-              );
               newlyUnlockedAchievements.push(achievementName);
             }
           }
@@ -579,10 +419,6 @@ const useTrackingWorkflow = () => {
 
       // If we found newly unlocked achievements, trigger notifications
       if (newlyUnlockedAchievements.length > 0) {
-        console.log(
-          `🎯 TENOKE Addition Detection: Found ${newlyUnlockedAchievements.length} newly unlocked achievements`
-        );
-
         // Use the same notification pipeline
         handleAchievementNotifications(
           newlyUnlockedAchievements,
@@ -596,7 +432,6 @@ const useTrackingWorkflow = () => {
 
       return false; // No TENOKE achievements detected
     } catch (error) {
-      console.error("Error in TENOKE addition detection:", error);
       return false;
     }
   }
@@ -615,12 +450,8 @@ const useTrackingWorkflow = () => {
     try {
       // Only process JSON files
       if (!content.trim().startsWith("{") && !content.trim().startsWith("[")) {
-        console.log("Not a JSON file, skipping JSON state change detection");
         return false;
       }
-
-      console.log("🔍 Checking for JSON achievement state changes...");
-
       // Parse the JSON content
       const data = JSON.parse(content);
       const newlyUnlockedAchievements: string[] = [];
@@ -631,8 +462,6 @@ const useTrackingWorkflow = () => {
         !Array.isArray(data) &&
         !data.achievements
       ) {
-        console.log("Detected GSE Saves JSON format");
-
         for (const [achievementName, achData] of Object.entries(data)) {
           const achievement = achData as any;
 
@@ -645,9 +474,6 @@ const useTrackingWorkflow = () => {
             // Only detect achievements earned in the last 10 seconds
             // This is tighter than the 30-second fallback window
             if (timeDiff <= 10) {
-              console.log(
-                `✅ Found recently earned achievement: ${achievementName} (${timeDiff}s ago)`
-              );
               newlyUnlockedAchievements.push(achievementName);
             }
           }
@@ -656,8 +482,6 @@ const useTrackingWorkflow = () => {
 
       // Handle standard Goldberg JSON format (object with achievements property)
       if (data.achievements && typeof data.achievements === "object") {
-        console.log("Detected standard Goldberg JSON format");
-
         for (const [achievementName, achData] of Object.entries(
           data.achievements
         )) {
@@ -679,9 +503,6 @@ const useTrackingWorkflow = () => {
               const timeDiff = now - Number(unlockTime);
 
               if (timeDiff <= 10) {
-                console.log(
-                  `✅ Found recently unlocked achievement: ${achievementName} (${timeDiff}s ago)`
-                );
                 newlyUnlockedAchievements.push(achievementName);
               }
             }
@@ -691,10 +512,6 @@ const useTrackingWorkflow = () => {
 
       // If we found newly unlocked achievements, trigger notifications
       if (newlyUnlockedAchievements.length > 0) {
-        console.log(
-          `🎯 JSON State Change Detection: Found ${newlyUnlockedAchievements.length} newly unlocked achievements`
-        );
-
         // Use the same notification pipeline as the main workflow
         handleAchievementNotifications(
           newlyUnlockedAchievements,
@@ -708,7 +525,6 @@ const useTrackingWorkflow = () => {
 
       return false; // No new achievements detected
     } catch (error) {
-      console.error("Error in JSON state change detection:", error);
       return false;
     }
   }
@@ -726,11 +542,6 @@ const useTrackingWorkflow = () => {
     const achievementNamesArray = Array.isArray(achievementNames)
       ? achievementNames
       : Array.from(achievementNames);
-
-    console.log(
-      `📢 Handling notifications for ${achievementNamesArray.length} achievements`
-    );
-
     try {
       // Re-parse achievements to get latest state
       await parseAchievements(appId, exePath);
@@ -743,7 +554,6 @@ const useTrackingWorkflow = () => {
       );
 
       if (!currentAchievements?.game?.availableGameStats?.achievements) {
-        console.log("No achievement data available in store");
         return;
       }
 
@@ -764,19 +574,7 @@ const useTrackingWorkflow = () => {
           (ach) =>
             ach?.achievedAt && ach.achievedAt !== "0" && ach.achievedAt !== ""
         );
-
-      console.log(
-        "Found matching achievements:",
-        unlockedAchievements.map((a) => ({
-          name: a?.name,
-          displayName: a?.displayName,
-          achievedAt: a?.achievedAt,
-        }))
-      );
-
       if (unlockedAchievements.length > 0) {
-        console.log("🎉 NEW ACHIEVEMENTS UNLOCKED!");
-
         // Show web toast notification
         toast(
           `${unlockedAchievements.length} new achievement${
@@ -793,7 +591,6 @@ const useTrackingWorkflow = () => {
         // Play sound
         const soundPath = getProfile().notificationSound;
         if (soundPath) {
-          console.log("Attempting to play notification sound...");
           await playNotificationSound(soundPath);
         }
 
@@ -816,44 +613,18 @@ const useTrackingWorkflow = () => {
           isRare: false,
         });
       } else {
-        console.log("No newly unlocked achievements found");
       }
-    } catch (error) {
-      console.error("Error in notification handler:", error);
-    }
+    } catch (error) {}
   }
 
   function getGameBasedOnPath(path: string) {
-    console.log("=== getGameBasedOnPath DEBUG ===");
-    console.log("Input path:", path);
-    console.log(
-      "trackAchievementsFiles:",
-      trackAchievementsFiles,
-      getTrackedAchievementsFiles()
-    );
-    getTrackedAchievementsFiles().forEach((item, index) => {
-      console.log(`[${index}] Stored path: "${item.filePath}"`);
-      console.log(`[${index}] Input path:  "${path}"`);
-      console.log(`[${index}] Paths match: ${item.filePath === path}`);
-      console.log(`[${index}] AppId: ${item.appid}`);
-    });
-    const findEntry = getTrackedAchievementsFiles().find(
-      (item) => item.filePath === path
-    );
-    console.log({ findEntry });
-
     const appid =
       getTrackedAchievementsFiles().find((item) => item.filePath === path)
         ?.appid ?? "";
-    console.log("Found appid:", appid);
-
     if (!appid) {
-      console.log("No appid found, returning false");
       return false;
     }
     const game = getGameById(String(appid));
-    console.log("Found game:", game);
-
     return game ?? false;
   }
 

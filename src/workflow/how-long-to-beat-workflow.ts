@@ -75,7 +75,6 @@ const useHowLongToBeatWorkflow = () => {
 
       return selectedGame;
     } catch (error) {
-      console.error("Error in HowLongToBeat workflow:", error);
       toast.error("Failed to complete HowLongToBeat workflow");
       return null;
     }
@@ -91,16 +90,12 @@ const useHowLongToBeatWorkflow = () => {
       const response = await invoke("get_how_long_to_beat", {
         gameName: gameName,
       });
-
-      console.log("HowLongToBeat API response:", { response });
-
       if (Array.isArray(response) && response.length > 0) {
         return response as HowLongToBeatResponse;
       }
 
       return [];
     } catch (error) {
-      console.error("Error fetching HowLongToBeat data:", error);
       throw error;
     }
   }
@@ -118,7 +113,6 @@ const useHowLongToBeatWorkflow = () => {
       await store.set(storeKey, selectedGame);
       await store.save();
     } catch (error) {
-      console.error("Error saving to store:", error);
       throw error;
     }
   }
@@ -135,7 +129,6 @@ const useHowLongToBeatWorkflow = () => {
       const storedData = await store.get<HowLongToBeatGame>(storeKey);
       return storedData || null;
     } catch (error) {
-      console.error("Error retrieving from store:", error);
       return null;
     }
   }
@@ -152,7 +145,6 @@ const useHowLongToBeatWorkflow = () => {
       await store.save();
       toast.success("HowLongToBeat data cleared");
     } catch (error) {
-      console.error("Error clearing store data:", error);
       toast.error("Failed to clear stored data");
     }
   }

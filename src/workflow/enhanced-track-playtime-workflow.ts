@@ -16,11 +16,7 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
           appid,
         });
         setPlaytime(currentPlaytime);
-        console.log(
-          `Loaded initial playtime: ${currentPlaytime}s for ${appid}`
-        );
       } catch (e) {
-        console.error("Failed to load initial playtime:", e);
         setPlaytime(0);
       }
     };
@@ -36,7 +32,6 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       });
       return isRunning;
     } catch (e) {
-      console.error("Failed to check process status:", e);
       return false;
     }
   };
@@ -46,7 +41,6 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
     try {
       const processRunning = await checkProcessStatus();
       if (!processRunning) {
-        console.log("Process is not running, cannot start monitoring");
         return false;
       }
 
@@ -58,11 +52,8 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       setIsRunning(true);
       setIsMonitoring(true);
       startPlaytimeInterval();
-
-      console.log("Started monitoring already running process");
       return true;
     } catch (e) {
-      console.error("Failed to start monitoring:", e);
       return false;
     }
   };
@@ -70,7 +61,6 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
   // Launch game and start tracking
   const startTrackingWithLaunch = async (): Promise<boolean> => {
     if (isRunning) {
-      console.log("Already tracking/running");
       return true;
     }
 
@@ -83,11 +73,8 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       setIsRunning(true);
       setIsMonitoring(false); // This is a launch, not monitoring
       startPlaytimeInterval();
-
-      console.log("Started tracking with game launch");
       return true;
     } catch (e) {
-      console.error("Failed to start tracking with launch:", e);
       return false;
     }
   };
@@ -95,17 +82,14 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
   // Smart start: check if process is running, if so monitor, if not launch
   const smartStart = async (): Promise<boolean> => {
     if (isRunning) {
-      console.log("Already tracking");
       return true;
     }
 
     const processRunning = await checkProcessStatus();
 
     if (processRunning) {
-      console.log("Process detected running, starting monitoring");
       return await startMonitoring();
     } else {
-      console.log("Process not running, launching game");
       return await startTrackingWithLaunch();
     }
   };
@@ -122,7 +106,6 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
         });
         setPlaytime(currentPlaytime);
       } catch (e) {
-        console.error("Failed to get current playtime:", e);
       }
     }, 1000);
   };
@@ -147,9 +130,7 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
           appid,
         });
         setPlaytime(finalPlaytime);
-        console.log(`Stopped tracking, final playtime: ${finalPlaytime}s`);
       } catch (e) {
-        console.error("Failed to stop tracking:", e);
       }
     }
 
@@ -168,9 +149,6 @@ const useEnhancedTrackPlaytimeWorkflow = (appid: string, exePath: string) => {
       if (!isRunning) {
         const processRunning = await checkProcessStatus();
         if (processRunning) {
-          console.log(
-            "Detected externally launched process, starting monitoring"
-          );
           await startMonitoring();
         }
       }

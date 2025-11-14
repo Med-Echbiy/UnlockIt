@@ -25,7 +25,6 @@ const useUpdateGameWorkflow = () => {
         await store.save();
       }
     } catch (error) {
-      console.error("Failed to update game status in Tauri store:", error);
     }
   };
 
@@ -42,7 +41,6 @@ const useUpdateGameWorkflow = () => {
         await store.save();
       }
     } catch (error) {
-      console.error("Failed to update game rating in Tauri store:", error);
     }
   };
 
@@ -59,7 +57,6 @@ const useUpdateGameWorkflow = () => {
         await store.save();
       }
     } catch (error) {
-      console.error("Failed to update game playtime in Tauri store:", error);
     }
   };
 

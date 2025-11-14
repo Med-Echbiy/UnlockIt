@@ -22,7 +22,6 @@ const useTenokeParserWorkflow = ({
           const gameDir = await path.dirname(exe_path);
           return await path.join(gameDir, "SteamData", "user_stats.ini");
         } catch (error) {
-          console.error("Error getting TENOKE achievement file path:", error);
           return false;
         }
       };
@@ -38,7 +37,6 @@ const useTenokeParserWorkflow = ({
       const parsedData = parsingLogic(readIniFile);
       return parsedData;
     } catch (error) {
-      console.error("Error parsing TENOKE achievements:", error);
       return false;
     }
   }
@@ -102,12 +100,7 @@ const useTenokeParserWorkflow = ({
         }
       }
     } catch (error) {
-      console.error("Error in TENOKE parsing logic:", error);
     }
-
-    console.log(
-      `TENOKE: Found ${achievementEntries.length} unlocked achievements`
-    );
     return achievementEntries;
   }
 

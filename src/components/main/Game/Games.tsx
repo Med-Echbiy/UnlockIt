@@ -13,7 +13,7 @@ import {
   Medal,
   RotateCcw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GameStoreData } from "@/types/Game";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { exists } from "@tauri-apps/plugin-fs";
 const getRatingTier = (rating: string) => {
   if (rating === "N/A") return "na";
   const numRating = Number(rating);
@@ -47,8 +48,34 @@ function Games() {
       | "diamond",
     metacritic: "all" as "all" | "high" | "medium" | "low" | "none",
     genre: "all" as string,
+    installed: "installed-only" as "all" | "installed-only" | "not-installed",
   });
   const [isExpanded, setIsExpanded] = useState(false);
+  const [installedGamesMap, setInstalledGamesMap] = useState<
+    Map<number, boolean>
+  >(new Map());
+
+  // Check which games are installed
+  useEffect(() => {
+    const checkInstalledStatus = async () => {
+      const statusMap = new Map<number, boolean>();
+      for (const game of games) {
+        if (game.exePath) {
+          try {
+            const isInstalled = await exists(game.exePath);
+            statusMap.set(game.appId, isInstalled);
+          } catch {
+            statusMap.set(game.appId, false);
+          }
+        } else {
+          statusMap.set(game.appId, false);
+        }
+      }
+      setInstalledGamesMap(statusMap);
+    };
+
+    checkInstalledStatus();
+  }, [games]);
   const allGenres = games.flatMap((game) => game.genres);
   const uniqueGenres = Array.from(
     new Set(allGenres.map((genre) => genre.description))
@@ -87,6 +114,17 @@ function Games() {
       if (!hasGenre) return false;
     }
 
+    // Check installation status
+    if (filters.installed !== "all") {
+      const isInstalled = installedGamesMap.get(game.appId) ?? false;
+      if (filters.installed === "installed-only" && !isInstalled) {
+        return false;
+      }
+      if (filters.installed === "not-installed" && isInstalled) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -96,6 +134,7 @@ function Games() {
       rating: "all",
       metacritic: "all",
       genre: "all",
+      installed: "installed-only",
     });
   };
 
@@ -103,7 +142,8 @@ function Games() {
     filters.status !== "all" ||
     filters.rating !== "all" ||
     filters.metacritic !== "all" ||
-    filters.genre !== "all";
+    filters.genre !== "all" ||
+    filters.installed !== "installed-only";
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -178,7 +218,28 @@ function Games() {
 
           {isExpanded && (
             <CardContent className='space-y-4'>
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4'>
+                {/* Installation Filter */}
+                <div className='space-y-2'>
+                  <label className='text-sm font-medium text-slate-300'>
+                    Installation
+                  </label>
+                  <select
+                    value={filters.installed}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        installed: e.target.value as any,
+                      }))
+                    }
+                    className='w-full p-2 border border-slate-600 rounded-md bg-slate-700 text-slate-200'
+                  >
+                    <option value='all'>All Games</option>
+                    <option value='installed-only'>Installed Only</option>
+                    <option value='not-installed'>Not Installed</option>
+                  </select>
+                </div>
+
                 {/* Status Filter */}
                 <div className='space-y-2'>
                   <label className='text-sm font-medium text-slate-300'>

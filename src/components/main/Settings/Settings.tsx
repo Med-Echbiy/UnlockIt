@@ -98,7 +98,6 @@ function SettingsDialog() {
         });
       }
     } catch (error) {
-      console.error("Failed to upload avatar:", error);
       toast.error("Failed to upload avatar", {
         style: {
           background: "rgb(185 28 28)",
@@ -121,22 +120,15 @@ function SettingsDialog() {
           audioSrc = convertFileSrc(resourcePath);
         } catch (resourceError) {
           // Fallback to direct file conversion if resource resolution fails
-          console.warn(
-            "Resource resolution failed, trying direct path:",
-            resourceError
-          );
           audioSrc = convertFileSrc(soundFile);
         }
       } else {
         // For development mode, use direct path
         audioSrc = `/${soundFile}`;
       }
-
-      console.log("Playing sound from:", audioSrc);
       const audio = new Audio(audioSrc);
       await audio.play();
     } catch (error) {
-      console.error("Failed to play sound:", error);
       toast.error("Failed to play notification sound", {
         style: {
           background: "rgb(185 28 28)",
@@ -350,7 +342,6 @@ function SettingsDialog() {
                     await checkForUpdatesManually();
                     toast.success("Update check completed!");
                   } catch (error) {
-                    console.error("Update check failed:", error);
                     toast.error("Failed to check for updates");
                   } finally {
                     setIsCheckingUpdates(false);
@@ -384,7 +375,6 @@ function SettingsDialog() {
                     });
                     toast.success("Test notification sent!");
                   } catch (error) {
-                    console.error("Test notification failed:", error);
                     toast.error("Test notification failed: " + error);
                   }
                 }}

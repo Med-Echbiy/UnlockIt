@@ -23,10 +23,6 @@ const GameCarousel: React.FC<GameCarouselProps> = ({
 }) => {
   // Safety check for gameScores
   if (!gameScores || gameScores.length === 0) {
-    console.log(
-      "⚠️ [GameCarousel] No games to display - gameScores:",
-      gameScores
-    );
     return (
       <div className='flex items-center justify-center h-[300px] text-slate-400'>
         <div className='text-center'>
@@ -39,23 +35,8 @@ const GameCarousel: React.FC<GameCarouselProps> = ({
 
   const topGames = gameScores.slice(0, Math.min(8, gameScores.length));
   const currentGame = topGames[currentGameIndex];
-
-  console.log("🎮 [GameCarousel] Rendering:", {
-    totalGameScores: gameScores.length,
-    topGamesCount: topGames.length,
-    currentGameIndex,
-    currentGameExists: !!currentGame,
-    currentGameName: currentGame?.gameName,
-  });
-
   // Safety check for currentGame
   if (!currentGame) {
-    console.log(
-      "⚠️ [GameCarousel] No current game found - currentGameIndex:",
-      currentGameIndex,
-      "topGames length:",
-      topGames.length
-    );
     return (
       <div className='flex items-center justify-center h-[300px] text-slate-400'>
         <div className='text-center'>

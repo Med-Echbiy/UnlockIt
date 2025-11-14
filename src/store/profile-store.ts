@@ -49,7 +49,6 @@ const useProfileStore = create<ProfileStore>((set, get) => ({
         set({ profile: savedProfile as ProfileData });
       }
     } catch (error) {
-      console.error("Failed to load profile:", error);
     }
   },
 
@@ -60,7 +59,6 @@ const useProfileStore = create<ProfileStore>((set, get) => ({
       await store.set("userProfile", profile);
       await store.save();
     } catch (error) {
-      console.error("Failed to save profile:", error);
     }
   },
 

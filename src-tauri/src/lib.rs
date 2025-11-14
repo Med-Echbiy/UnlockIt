@@ -104,6 +104,53 @@ async fn store_achievements_by_appid(
     );
     Ok(())
 }
+
+#[tauri::command]
+async fn fetch_igdb_data(
+    client_id: String,
+    access_token: String,
+    endpoint: String,
+    query: String,
+) -> Result<serde_json::Value, String> {
+    let url = format!("https://api.igdb.com/v4/{}", endpoint);
+    println!("Fetching IGDB data from: {}", url);
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .post(&url)
+        .header("Client-ID", client_id)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Accept", "application/json")
+        .body(query)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+
+    let status = resp.status();
+    println!("IGDB HTTP Status: {}", status);
+
+    if !status.is_success() {
+        let error_text = resp.text().await.unwrap_or_default();
+        return Err(format!(
+            "HTTP error: {} - {}",
+            status.as_u16(),
+            error_text
+        ));
+    }
+
+    let response_text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response text: {}", e))?;
+
+    println!("IGDB Response length: {} bytes", response_text.len());
+
+    let json: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("JSON parsing error: {}", e))?;
+
+    Ok(json)
+}
+
 #[tauri::command]
 async fn fetch_game_metadata_from_steam(app_id: String) -> Result<serde_json::Value, String> {
     let url = format!(
@@ -1239,38 +1286,94 @@ struct GameData {
 async fn get_search_id() -> Result<String, String> {
     let client = reqwest::Client::new();
     let base_url = "https://howlongtobeat.com";
+    
+    // Fetch main page
     let response = client
         .get(base_url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch main page: {}", e))?;
     
     let html = response.text().await
         .map_err(|e| format!("Failed to read main page: {}", e))?;
-    let js_regex = regex::Regex::new(r"_app-\w*\.js").unwrap();
-    if let Some(js_match) = js_regex.find(&html) {
-        let js_file = js_match.as_str();
-        let js_url = format!("{}/_next/static/chunks/pages/{}", base_url, js_file);
-        let js_response = client
-            .get(&js_url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .send()
-            .await
-            .map_err(|e| format!("Failed to fetch JS file: {}", e))?;
-        
-        let js_content = js_response.text().await
-            .map_err(|e| format!("Failed to read JS file: {}", e))?;
-        let search_regex = regex::Regex::new(r#""/api/seek/"\.concat\("(\w*?)"\)\.concat\("(\w*?)"\)"#).unwrap();
-        if let Some(captures) = search_regex.captures(&js_content) {
-            let search_id = format!("{}{}", &captures[1], &captures[2]);
-            Ok(search_id)
-        } else {
-            Err("Could not find search ID in JS file".to_string())
+    
+    println!("Fetched main page, length: {} bytes", html.len());
+    
+    // Try multiple patterns to find the JS file
+    let patterns = vec![
+        r"submit-\w*\.js",           // submit-abc123.js
+        r"_app-\w*\.js",             // _app-abc123.js  
+        r"pages/submit-[a-f0-9]+\.js", // pages/submit-abc123.js
+        r"pages/_app-[a-f0-9]+\.js",   // pages/_app-abc123.js
+    ];
+    
+    let mut js_file = None;
+    let mut js_url = String::new();
+    
+    for pattern in patterns {
+        let js_regex = regex::Regex::new(pattern).unwrap();
+        if let Some(js_match) = js_regex.find(&html) {
+            js_file = Some(js_match.as_str().to_string());
+            
+            // Construct the URL - if it already contains "pages/", use it as-is
+            if js_file.as_ref().unwrap().contains("pages/") {
+                js_url = format!("{}/_next/static/chunks/{}", base_url, js_file.as_ref().unwrap());
+            } else {
+                js_url = format!("{}/_next/static/chunks/pages/{}", base_url, js_file.as_ref().unwrap());
+            }
+            
+            println!("Found JS file using pattern '{}': {}", pattern, js_file.as_ref().unwrap());
+            break;
         }
-    } else {
-        Err("Could not find JS file in main page".to_string())
     }
+    
+    if js_file.is_none() {
+        // Try to extract any _next JS file reference
+        println!("Standard patterns failed, searching for any _next static JS file...");
+        let generic_regex = regex::Regex::new(r#"/_next/static/chunks/pages/[^"']+\.js"#).unwrap();
+        if let Some(js_match) = generic_regex.find(&html) {
+            js_url = format!("{}{}", base_url, js_match.as_str());
+            println!("Found generic JS file: {}", js_url);
+        } else {
+            return Err("Could not find any suitable JS file in main page".to_string());
+        }
+    }
+    
+    // Fetch the JS file
+    println!("Fetching JS from: {}", js_url);
+    let js_response = client
+        .get(&js_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch JS file: {}", e))?;
+    
+    let js_content = js_response.text().await
+        .map_err(|e| format!("Failed to read JS file: {}", e))?;
+    
+    println!("Fetched JS file, length: {} bytes", js_content.len());
+    
+    // Try multiple regex patterns to find the search ID
+    let search_patterns = vec![
+        r#""/api/locate/"\.concat\("(\w+)"\)\.concat\("(\w+)"\)"#,
+        r#""/api/seek/"\.concat\("(\w+)"\)\.concat\("(\w+)"\)"#,
+        r#"/api/locate/([a-zA-Z0-9]+)([a-zA-Z0-9]+)"#,
+        r#"api/locate/","(\w+)","(\w+)"#,
+    ];
+    
+    for pattern in search_patterns {
+        let search_regex = regex::Regex::new(pattern).unwrap();
+        if let Some(captures) = search_regex.captures(&js_content) {
+            if captures.len() >= 3 {
+                let search_id = format!("{}{}", &captures[1], &captures[2]);
+                println!("Found search ID using pattern '{}': {}", pattern, search_id);
+                return Ok(search_id);
+            }
+        }
+    }
+    
+    Err("Could not find search ID in JS file with any known pattern".to_string())
 }
 
 #[tauri::command]
@@ -1317,14 +1420,17 @@ async fn get_how_long_to_beat(game_name: String) -> Result<serde_json::Value, St
         },
         use_cache: true,
     };
-    let url = format!("https://howlongtobeat.com/api/seek/{}", search_id);
+    // Use /api/locate/ endpoint, not /api/seek/
+    let url = format!("https://howlongtobeat.com/api/locate/{}", search_id);
     println!("Sending POST request to: {}", url);
+    
+    // Add a 2-second delay before making the request (as done in Playnite plugin)
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     
     let response = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
         .header("Origin", "https://howlongtobeat.com")
         .header("Referer", "https://howlongtobeat.com")
         .json(&search_param)
@@ -1354,10 +1460,28 @@ async fn get_how_long_to_beat(game_name: String) -> Result<serde_json::Value, St
     if let Some(data) = search_result.data {
         println!("Found {} game results", data.len());
         let games: Vec<serde_json::Value> = data.into_iter().map(|game| {
+            // Debug: print the raw game_image value
+            println!("DEBUG - Raw game_image value: {:?}", game.game_image);
+            
+            // Build the image URL correctly
+            let game_image_url = if let Some(ref img) = game.game_image {
+                if !img.is_empty() {
+                    let url = format!("https://howlongtobeat.com/games/{}", img);
+                    println!("DEBUG - Constructed image URL: {}", url);
+                    url
+                } else {
+                    println!("DEBUG - Empty game_image string");
+                    String::new()
+                }
+            } else {
+                println!("DEBUG - No game_image value");
+                String::new()
+            };
+            
             json!({
                 "game_id": game.game_id,
                 "game_name": game.game_name,
-                "game_image": game.game_image.unwrap_or_default(),
+                "game_image": game_image_url,
                 "game_type": game.game_type.unwrap_or_default(),
                 "comp_main": game.comp_main.unwrap_or(0),
                 "comp_plus": game.comp_plus.unwrap_or(0),
@@ -1537,6 +1661,7 @@ pub fn run() {
             fetch_achievements,
             store_achievements_by_appid,
             fetch_game_metadata_from_steam,
+            fetch_igdb_data,
             load_image,
             start_playtime_tracking,
             start_process_monitoring,

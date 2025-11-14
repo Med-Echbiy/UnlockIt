@@ -40,8 +40,6 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { formatPlayTime } from "@/lib/howLongToBeatHelper";
 
-const mainUrl = "https://howlongtobeat.com/games/";
-
 interface AsyncHowLongToBeatDialogProps {
   data: HowLongToBeatResponse;
   isOpen: boolean;
@@ -201,10 +199,7 @@ function AsyncHowLongToBeatDialog({
                           <div className='relative flex-shrink-0'>
                             <div className='w-20 h-28 bg-gradient-to-br from-muted to-muted/50 rounded-lg overflow-hidden border'>
                               <img
-                                src={
-                                  mainUrl + game.game_image ||
-                                  "/placeholder.svg"
-                                }
+                                src={game.game_image || "/placeholder.svg"}
                                 alt={game.game_name}
                                 className='w-full h-full object-cover transition-transform duration-300 hover:scale-105'
                                 onError={(e) => {

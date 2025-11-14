@@ -27,7 +27,6 @@ const useSilentPercentageRefreshWorkflow = () => {
       try {
         refreshStore.current = await load("refresh-timestamps.json");
       } catch (error) {
-        console.error("Failed to load refresh timestamps store:", error);
       }
     };
     initStore();
@@ -40,7 +39,6 @@ const useSilentPercentageRefreshWorkflow = () => {
       const timestamp = await refreshStore.current.get("lastPercentageRefresh");
       return timestamp || 0;
     } catch (error) {
-      console.error("Failed to get last refresh time:", error);
       return 0;
     }
   };
@@ -52,7 +50,6 @@ const useSilentPercentageRefreshWorkflow = () => {
       await refreshStore.current.set("lastPercentageRefresh", timestamp);
       await refreshStore.current.save();
     } catch (error) {
-      console.error("Failed to set last refresh time:", error);
     }
   };
 
@@ -64,15 +61,11 @@ const useSilentPercentageRefreshWorkflow = () => {
     if (isRefreshing.current || now - lastRefreshTime < REFRESH_COOLDOWN) {
       const timeRemaining = REFRESH_COOLDOWN - (now - lastRefreshTime);
       const hoursRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60));
-      console.log(
-        `🔄 Percentage refresh skipped - cooldown active (${hoursRemaining}h remaining) or already refreshing`
-      );
       return;
     }
 
     const apiKey = getSteamApiKey();
     if (!apiKey) {
-      console.log("🔄 Percentage refresh skipped - no Steam API key");
       return;
     }
 
@@ -80,19 +73,11 @@ const useSilentPercentageRefreshWorkflow = () => {
     const achievements = getAchievements();
 
     if (games.length === 0 || achievements.length === 0) {
-      console.log("🔄 Percentage refresh skipped - no games or achievements");
       return;
     }
 
     isRefreshing.current = true;
     await setLastRefreshTime(now);
-
-    console.log(
-      "🔄 Starting silent achievement percentage refresh for",
-      games.length,
-      "games"
-    );
-
     try {
       const refreshPromises = games.map(async (game) => {
         try {
@@ -160,15 +145,9 @@ const useSilentPercentageRefreshWorkflow = () => {
               filePath,
               new TextEncoder().encode(JSON.stringify(updatedData, null, 2))
             );
-
-            console.log(`✅ Updated percentages for ${game.name}`);
           }
         } catch (error) {
           // Silently handle individual game failures
-          console.warn(
-            `⚠️ Failed to update percentages for ${game.name}:`,
-            error
-          );
         }
       });
 
@@ -183,10 +162,7 @@ const useSilentPercentageRefreshWorkflow = () => {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
-
-      console.log("✅ Silent achievement percentage refresh completed");
     } catch (error) {
-      console.error("❌ Silent percentage refresh failed:", error);
     } finally {
       isRefreshing.current = false;
     }
@@ -194,7 +170,6 @@ const useSilentPercentageRefreshWorkflow = () => {
 
   const handleOnlineStatusChange = (isOnline: boolean) => {
     if (isOnline) {
-      console.log("🌐 User came online - scheduling percentage refresh");
       // Delay refresh slightly to ensure connection is stable
       setTimeout(() => {
         refreshAchievementPercentages();

@@ -40,7 +40,6 @@ const ManualPlaytimeInput = ({
       await onPlaytimeChange(totalSeconds);
       setIsEditing(false);
     } catch (error) {
-      console.error("Failed to update playtime:", error);
     } finally {
       setIsLoading(false);
     }

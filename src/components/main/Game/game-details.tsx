@@ -73,7 +73,6 @@ import useSilentPercentageRefreshWorkflow from "@/workflow/silent-percentage-ref
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
   const game = useMyGamesStore((state) => state.getGameById(id as string));
-
   // Dialog state for HowLongToBeat search
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -87,16 +86,21 @@ function GameDetails() {
     try {
       await executeHowLongToBeatWorkflow(String(game?.appId), gameName);
     } catch (error) {
-      console.error("Error fetching HowLongToBeat data:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (game) {
+      if (game.name) {
+      }
+    }
+  }, [game?.name, game?.appId]);
+
   if (!game) {
     return <></>;
   }
-
   return (
     <main className='w-full min-h-screen p-2 max-w-screen-2xl mx-auto'>
       {game && (
@@ -195,7 +199,6 @@ function SystemScoreSection({ game }: { game: GameStoreData }) {
         const score = calculateGameScore(game.appId);
         setGameScore(score);
       } catch (error) {
-        console.error("Error calculating game score:", error);
       } finally {
         setIsLoading(false);
       }
@@ -645,20 +648,14 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
           `Achievement files refreshed! Percentages are in cooldown (${hours}h ${minutes}m remaining). Only percentage fetching is limited, not file checking.`,
           { duration: 5000 }
         );
-
-        console.log(
-          "✅ Achievement parsing completed (percentages not refreshed due to cooldown)"
-        );
       } else {
         // Also refresh percentages from Steam API
         await manualRefreshPercentages();
-        console.log("✅ Achievement refresh and percentage update completed");
         toast.success(
           "Achievement files and percentages refreshed successfully!"
         );
       }
     } catch (error) {
-      console.error("❌ Failed to refresh achievements:", error);
       toast.error("Failed to refresh achievement data");
     } finally {
       setIsRefreshing(false);
@@ -783,7 +780,6 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
           setIcon(loadedIcon);
         }
       } catch (error) {
-        console.error("Error loading achievement icon:", error);
       } finally {
         setIsLoading(false);
       }
@@ -1213,9 +1209,7 @@ function HowLongToBeatHeader({
   const [, setSearchQuery] = useState(game.name);
 
   // Debug logging
-  useEffect(() => {
-    console.log("Dialog state changed:", isDialogOpen);
-  }, [isDialogOpen]);
+  useEffect(() => {}, [isDialogOpen]);
 
   useEffect(() => {
     const existingData = getSessionData(String(game.appId));
@@ -1240,7 +1234,7 @@ function HowLongToBeatHeader({
   //       setHowLongToBeatData(selectedGame);
   //     }
   //   } catch (error) {
-  //     console.error("Error fetching HowLongToBeat data:", error);
+  //
   //   } finally {
   //     setIsLoading(false);
   //   }
@@ -1298,7 +1292,7 @@ function HowLongToBeatHeader({
   ];
 
   // const SearchDialog = () => {
-  //   console.log("SearchDialog render, isDialogOpen:", isDialogOpen);
+  //
 
   //   if (!isDialogOpen) return null;
 
@@ -1394,7 +1388,6 @@ function HowLongToBeatHeader({
             </div>
             <Button
               onClick={() => {
-                console.log("Button clicked, opening dialog");
                 onOpenDialog();
               }}
               className='bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
@@ -1448,7 +1441,6 @@ function HowLongToBeatHeader({
                 variant='outline'
                 size='sm'
                 onClick={() => {
-                  console.log("Update button clicked, opening dialog");
                   onOpenDialog();
                 }}
               >

@@ -44,10 +44,8 @@ function Home() {
       const games = getGames() || [];
       for (const game of games) {
         if (!game || !game.name) {
-          console.warn("Skipping invalid game object:", game);
           continue;
         }
-        console.log("Parsing achievements for game:", game.name);
         await parseAchievements(game.appId, game.exePath);
       }
       setLoading(false);
@@ -143,7 +141,6 @@ function Home() {
 
   const handlePlayGame = async (game: GameStoreData) => {
     if (!game || !game.exePath || !game.name) {
-      console.error("Invalid game object passed to handlePlayGame:", game);
       toast.error("Unable to launch game: Invalid game data", {
         style: {
           background: "rgb(185 28 28)",
@@ -160,7 +157,6 @@ function Home() {
         },
       });
     } catch (error) {
-      console.error("Failed to launch game:", error);
       toast.error(`Failed to launch ${game.name}`, {
         description: String(error),
         style: {

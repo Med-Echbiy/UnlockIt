@@ -36,7 +36,6 @@ export function SystemScoreAchievement({
           setIcon(loadedIcon);
         }
       } catch (error) {
-        console.error("Error loading achievement icon:", error);
       } finally {
         setIsLoading(false);
       }

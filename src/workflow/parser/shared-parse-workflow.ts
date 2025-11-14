@@ -15,7 +15,6 @@ const sharedParsingWorkflow = () => {
       (e) => e.filePath === filePath
     );
     if (check_exists) {
-      console.log("File already tracked:", filePath);
       return;
     }
     const trackedFiles = addTrackedFile(appid, filePath);

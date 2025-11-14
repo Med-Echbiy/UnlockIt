@@ -17,6 +17,7 @@ import useUIStateStore from "@/store/ui-state-store";
 import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
 import useParsingWorkflow from "./parser/parse-workflow";
 import useAutoGameStatusWorkflow from "./auto-game-status-workflow";
+// import { igdbClient } from "@/lib/igdb-client"; // Temporarily disabled
 
 const useAddGameWorkflow = () => {
   const { setAddGameLoading, setGameLoadingName, setAddGameLoadingProgress } =
@@ -33,6 +34,42 @@ const useAddGameWorkflow = () => {
   const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
   const { checkAndUpdateGameStatus } = useAutoGameStatusWorkflow();
 
+  // Helper function to fetch IGDB cover art
+  /* TEMPORARILY DISABLED - Uncomment when needed
+  async function fetchIGDBCoverArt(
+    gameName: string,
+    appId: number
+  ): Promise<string | null> {
+    try {
+      console.log(`Fetching IGDB cover for: ${gameName}`);
+
+      // Search for the game on IGDB
+      const game = await igdbClient.getGameByName(gameName);
+
+      if (!game?.cover?.image_id) {
+        console.log(`No IGDB cover found for: ${gameName}`);
+        return null;
+      }
+
+      // Get high-quality cover URL (cover_big = 264x374)
+      const coverUrl = igdbClient.getImageUrl(game.cover.image_id, "cover_big");
+      console.log(`IGDB cover URL: ${coverUrl}`);
+
+      // Download and cache the cover
+      const localPath = await downloadImage(
+        coverUrl,
+        `igdb_cover_${appId}.jpg`
+      );
+      console.log(`IGDB cover cached at: ${localPath}`);
+
+      return localPath;
+    } catch (error) {
+      console.error(`Failed to fetch IGDB cover for ${gameName}:`, error);
+      return null;
+    }
+  }
+  */
+
   // Helper function to fetch metadata with retry logic
   async function fetchMetadataWithRetry(
     appId: number,
@@ -46,8 +83,6 @@ const useAddGameWorkflow = () => {
         );
         return metadata;
       } catch (error) {
-        console.warn(`Metadata fetch attempt ${attempt} failed:`, error);
-
         if (attempt === maxRetries) {
           toast.error("Failed to fetch game metadata", {
             style: { background: "rgb(185 28 28)" },
@@ -97,7 +132,6 @@ const useAddGameWorkflow = () => {
       addGame(gameData);
       addAchievement(achievementData);
     } catch (error) {
-      console.error("Failed to save game data:", error);
       throw new Error("Failed to save game data to storage");
     }
   }
@@ -126,8 +160,7 @@ const useAddGameWorkflow = () => {
         ],
         multiple: false,
         directory: false,
-      }).catch((error) => {
-        console.error("File dialog error:", error);
+      }).catch(() => {
         toast.error("Failed to open file dialog", {
           style: { background: "rgb(185 28 28)" },
         });
@@ -139,8 +172,6 @@ const useAddGameWorkflow = () => {
       }
 
       let { name, dir } = getGameNameAndDir(gamePath);
-      console.log({ name, dir });
-
       // Start loading state
       isLoading = true;
       setGameLoadingName(name);
@@ -161,13 +192,9 @@ const useAddGameWorkflow = () => {
         new Promise<null>((_, reject) =>
           setTimeout(() => reject(new Error("AppID extraction timeout")), 5000)
         ),
-      ]).catch((error) => {
-        console.warn("AppID extraction failed:", error);
+      ]).catch(() => {
         return null;
       });
-
-      console.log({ appId });
-
       if (!appId) {
         toast.error("Could not detect game AppID", {
           style: { background: "rgb(185 28 28)" },
@@ -190,26 +217,29 @@ const useAddGameWorkflow = () => {
       setAddGameLoadingProgress(40);
 
       // Parallel operations for better performance
-      const [imageResults, achievementsResult] = await Promise.allSettled([
-        // Download images in parallel
-        Promise.all([
-          downloadImage(metadata.header_image, `cover_${appId}.jpg`).catch(
-            () => null
-          ),
-          downloadImage(
-            metadata.background_raw,
-            `background_${appId}.jpg`
-          ).catch(() => null),
-        ]),
-        // Get achievements
-        getGameSteamAchievementSchema(String(metadata.steam_appid), gamePath),
-      ]);
+      const [imageResults, achievementsResult /*, igdbCoverResult*/] =
+        await Promise.allSettled([
+          // Download images in parallel
+          Promise.all([
+            downloadImage(metadata.header_image, `cover_${appId}.jpg`).catch(
+              () => null
+            ),
+            downloadImage(
+              metadata.background_raw,
+              `background_${appId}.jpg`
+            ).catch(() => null),
+          ]),
+          // Get achievements
+          getGameSteamAchievementSchema(String(metadata.steam_appid), gamePath),
+          // Fetch IGDB cover art (proper game box art)
+          // fetchIGDBCoverArt(name, metadata.steam_appid),
+        ]);
 
       // Execute HowLongToBeat workflow in background (non-blocking)
       executeHowLongToBeatWorkflow(
         String(metadata.steam_appid),
         String(name)
-      ).catch(console.warn);
+      ).catch(() => {});
 
       setAddGameLoadingProgress(75);
 
@@ -221,6 +251,10 @@ const useAddGameWorkflow = () => {
         achievementsResult.status === "fulfilled"
           ? achievementsResult.value
           : null;
+
+      // const igdbCover =
+      //   igdbCoverResult.status === "fulfilled" ? igdbCoverResult.value : null;
+      const igdbCover = null; // IGDB temporarily disabled
 
       if (!achievements) {
         toast.error("Failed to fetch achievements", {
@@ -241,6 +275,7 @@ const useAddGameWorkflow = () => {
         header_image: cover || metadata.header_image,
         background: backgroundImg || metadata.background_raw,
         background_raw: metadata.background_raw,
+        igdb_cover: igdbCover, // IGDB box art cover (portrait)
         developers: metadata.developers,
         release_date: metadata.release_date,
         metacritic: metadata.metacritic,
@@ -272,7 +307,6 @@ const useAddGameWorkflow = () => {
 
       return true;
     } catch (error) {
-      console.error("Add game workflow error:", error);
       toast.error("Failed to add game", {
         style: { background: "rgb(185 28 28)" },
         description:
@@ -328,10 +362,6 @@ const useAddGameWorkflow = () => {
 
       // Handle achievements result
       if (achievementsResult.status === "rejected") {
-        console.error(
-          "Failed to fetch achievements:",
-          achievementsResult.reason
-        );
         toast.error("Failed to fetch achievements", {
           style: { background: "rgb(185 28 28)" },
           description: "Could not retrieve achievement data from Steam API.",
@@ -364,9 +394,6 @@ const useAddGameWorkflow = () => {
             );
         }
       } else {
-        console.warn(
-          "Failed to fetch achievement percentages, proceeding without them"
-        );
       }
 
       // Store achievements and parse in parallel
@@ -374,11 +401,8 @@ const useAddGameWorkflow = () => {
         storeJson(achievements, { fileName: `achievements_${app_id}.json` }),
         parseAchievements(Number(app_id), exePath),
       ]);
-
-      console.log({ achievementsResult: achievements });
       return achievements;
     } catch (error) {
-      console.error("Achievement schema fetch error:", error);
       toast.error("Failed to process achievements", {
         style: { background: "rgb(185 28 28)" },
         description:
