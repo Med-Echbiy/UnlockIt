@@ -50,7 +50,7 @@ function Games() {
     genre: "all" as string,
     installed: "installed-only" as "all" | "installed-only" | "not-installed",
   });
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [installedGamesMap, setInstalledGamesMap] = useState<
     Map<number, boolean>
   >(new Map());

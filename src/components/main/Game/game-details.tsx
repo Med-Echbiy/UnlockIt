@@ -70,12 +70,79 @@ import type { AchievementTier } from "@/lib/ranking-system";
 import { GameScore } from "@/types/scoring";
 import useSilentPercentageRefreshWorkflow from "@/workflow/silent-percentage-refresh-workflow";
 
+// Helper function to detect crack type from file path
+function detectCrackType(filePath: string): {
+  type: string;
+  displayName: string;
+  color: string;
+} {
+  const path = filePath.toLowerCase();
+
+  // Check for TENOKE (SteamData folder with user_stats.ini or achievements.ini)
+  if (path.includes("steamdata") || path.includes("tenoke")) {
+    return { type: "TENOKE", displayName: "TENOKE", color: "bg-pink-500" };
+  }
+  // Check for Valve folder, valve.ini or ALI213 SteamEmu
+  else if (
+    path.includes("\\valve\\") ||
+    path.includes("/valve/") ||
+    path.includes("valve.ini") ||
+    path.includes("ali213")
+  ) {
+    return {
+      type: "ALI213",
+      displayName: "ALI213 SteamEmu",
+      color: "bg-blue-500",
+    };
+  } else if (path.includes("gse saves") || path.includes("goldberg")) {
+    return {
+      type: "GOLDBERG",
+      displayName: "Goldberg Emulator",
+      color: "bg-green-500",
+    };
+  } else if (path.includes("rune")) {
+    return { type: "RUNE", displayName: "RUNE", color: "bg-purple-500" };
+  } else if (path.includes("codex")) {
+    return { type: "CODEX", displayName: "CODEX", color: "bg-orange-500" };
+  } else if (path.includes("onlinefix") || path.includes("online fix")) {
+    return {
+      type: "ONLINE_FIX",
+      displayName: "OnlineFix",
+      color: "bg-cyan-500",
+    };
+  } else if (path.includes("steam_config")) {
+    return {
+      type: "STEAM_CONFIG",
+      displayName: "Steam Config",
+      color: "bg-indigo-500",
+    };
+  } else if (path.includes("empress")) {
+    return { type: "EMPRESS", displayName: "EMPRESS", color: "bg-red-500" };
+  }
+
+  return {
+    type: "UNKNOWN",
+    displayName: "Unknown Emulator",
+    color: "bg-gray-500",
+  };
+}
+
 function GameDetails() {
   const { id } = useParams<{ id: string }>();
   const game = useMyGamesStore((state) => state.getGameById(id as string));
+  const { getTrackedAchievementsFiles } = useAchievementsStore();
+  const achievementData = useAchievementsStore((s) =>
+    s.getAchievementByName?.(game?.name || "", String(game?.appId || ""))
+  );
+  const { parseAchievements } = useParsingWorkflow({
+    appid: game?.appId || 0,
+    exePath: game?.exePath || "",
+  });
+
   // Dialog state for HowLongToBeat search
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isParsing, setIsParsing] = useState(false);
 
   const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
   const [isLoading, setIsLoading] = useState(false);
@@ -91,12 +158,87 @@ function GameDetails() {
     }
   };
 
+  // Re-parse achievements when entering game detail page
+  useEffect(() => {
+    if (game && !isParsing) {
+      setIsParsing(true);
+
+      // Re-parse achievements to ensure:
+      // 1. Achievement files are tracked properly
+      // 2. Unlocked state is current and displayed correctly
+      // 3. File watcher is set up for real-time tracking
+      parseAchievements(game.appId, game.exePath)
+        .then(() => {
+          console.log(
+            `[GameDetails] Successfully re-parsed achievements for ${game.name}`
+          );
+        })
+        .catch((error) => {
+          console.error(
+            `[GameDetails] Failed to re-parse achievements:`,
+            error
+          );
+        })
+        .finally(() => {
+          setIsParsing(false);
+        });
+    }
+  }, [game?.appId]); // Only trigger when game changes
+
   useEffect(() => {
     if (game) {
-      if (game.name) {
+      // Log tracking information when entering game detail page
+      console.log("=== Game Detail Page Loaded ===");
+      console.log("Game Name:", game.name);
+      console.log("App ID:", game.appId);
+
+      // Get tracked file for this game
+      const trackedFiles = getTrackedAchievementsFiles();
+      const gameTrackedFile = trackedFiles.find(
+        (file) => file.appid === game.appId
+      );
+
+      if (gameTrackedFile) {
+        console.log("Tracked Achievement File Path:", gameTrackedFile.filePath);
+      } else {
+        console.log("No tracked achievement file found for this game");
       }
+
+      // Log achievement schema
+      if (achievementData) {
+        console.log("Achievement Schema:", {
+          gameId: achievementData.gameId,
+          gameName: achievementData.game?.gameName,
+          gameVersion: achievementData.game?.gameVersion,
+          totalAchievements:
+            achievementData.game?.availableGameStats?.achievements?.length || 0,
+          achievements: achievementData.game?.availableGameStats?.achievements,
+        });
+
+        // Log unlocked achievements
+        const unlockedAchievements =
+          achievementData.game?.availableGameStats?.achievements?.filter(
+            (ach) => ach.defaultvalue === 1
+          );
+        console.log("Unlocked Achievements:", unlockedAchievements);
+        console.log("Total Unlocked:", unlockedAchievements?.length || 0);
+
+        // Log unlocked achievement file paths (if stored in achievement data)
+        unlockedAchievements?.forEach((ach) => {
+          if (ach.icon) {
+            console.log(
+              `Achievement "${ach.displayName}" icon path:`,
+              ach.icon
+            );
+          }
+        });
+      } else {
+        console.log("No achievement data found for this game");
+      }
+
+      console.log("==============================");
     }
-  }, [game?.name, game?.appId]);
+  }, [game?.name, game?.appId, achievementData, getTrackedAchievementsFiles]);
 
   if (!game) {
     return <></>;
@@ -595,6 +737,7 @@ function RefreshButton({
 }
 
 function GameDetailsAchievements({ game }: { game: GameStoreData }) {
+  const { getTrackedAchievementsFiles } = useAchievementsStore();
   const rawAchievements = useAchievementsStore(
     (s) =>
       s.getAchievementByName?.(game?.name, String(game?.appId))?.game
@@ -606,17 +749,100 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
   const [filter, setFilter] = useState<
     "all" | "unlocked" | "locked" | "hidden"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"rarity" | "default">("rarity");
+  const { calculateAchievementScore } = useScoringSystemWorkflow();
+
+  // Get crack type information
+  const trackedFiles = getTrackedAchievementsFiles();
+  const gameTrackedFile = trackedFiles.find(
+    (file) => file.appid === game.appId
+  );
+  const crackInfo = gameTrackedFile
+    ? detectCrackType(gameTrackedFile.filePath)
+    : null;
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const filteredAchievements = !Array.isArray(achievements)
+  // Calculate scores for achievements
+  const achievementsWithScores = achievements.map((achievement, index) => {
+    // Calculate base score from rarity percentage
+    const percentage = parseFloat(achievement.percent || "100");
+    let baseScore = 10; // default
+    if (percentage >= 80) baseScore = 10;
+    else if (percentage >= 50) baseScore = 25;
+    else if (percentage >= 25) baseScore = 50;
+    else if (percentage >= 10) baseScore = 100;
+    else if (percentage >= 3) baseScore = 250;
+    else if (percentage >= 1) baseScore = 500;
+    else if (percentage >= 0.5) baseScore = 750;
+    else baseScore = 1000;
+
+    // Log each achievement with its base score
+    console.log(
+      `[Achievement] ${achievement.displayName || achievement.name}:`,
+      {
+        baseScore,
+        percentage: `${percentage}%`,
+        unlocked: achievement.defaultvalue === 1,
+      }
+    );
+
+    if (achievement.defaultvalue === 1) {
+      const { score, breakdown, tier } = calculateAchievementScore(
+        achievement,
+        game.name,
+        game.release_date.date,
+        index,
+        achievements,
+        game
+      );
+      return {
+        ...achievement,
+        calculatedScore: score,
+        scoreTier: tier,
+        baseScore,
+        percentage,
+      };
+    }
+    return {
+      ...achievement,
+      calculatedScore: 0,
+      scoreTier: "Common",
+      baseScore,
+      percentage,
+    };
+  });
+
+  // Filter and search achievements
+  let filteredAchievements = !Array.isArray(achievementsWithScores)
     ? []
     : filter === "all"
-    ? achievements
+    ? achievementsWithScores
     : filter === "unlocked"
-    ? achievements.filter((a) => a?.defaultvalue === 1)
+    ? achievementsWithScores.filter((a) => a?.defaultvalue === 1)
     : filter === "locked"
-    ? achievements.filter((a) => a?.defaultvalue === 0)
-    : achievements.filter((a) => a?.hidden === 1);
+    ? achievementsWithScores.filter((a) => a?.defaultvalue === 0)
+    : achievementsWithScores.filter((a) => a?.hidden === 1);
+
+  // Apply search filter
+  if (searchQuery.trim()) {
+    filteredAchievements = filteredAchievements.filter(
+      (a) =>
+        a.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        a.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+
+  // Apply sorting
+  if (sortBy === "default") {
+    filteredAchievements = [...filteredAchievements].sort(
+      (a, b) => (a.percentage || 100) - (b.percentage || 100)
+    );
+  } else {
+    filteredAchievements = [...filteredAchievements].sort(
+      (a, b) => (b.percentage || 100) - (a.percentage || 100)
+    );
+  }
   const { parseAchievements } = useParsingWorkflow({
     appid: game.appId,
     exePath: game.exePath,
@@ -674,69 +900,136 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
       <Card>
         <CardHeader>
           <div className='flex flex-col gap-2'>
-            <div>
-              <CardTitle>Achievements</CardTitle>
-              <CardDescription>
-                {total > 0
-                  ? `You Have Unlocked ${unlocked} of ${total}`
-                  : "No achievements found for this game."}
-              </CardDescription>
-            </div>
-            {total > 0 && (
-              <div className='flex justify-between items-center gap-2'>
-                <div className='flex gap-2 mt-2'>
-                  <Button
-                    size='sm'
-                    variant={filter === "all" ? "default" : "outline"}
-                    onClick={() => setFilter("all")}
-                  >
-                    All
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant={filter === "unlocked" ? "default" : "outline"}
-                    onClick={() => setFilter("unlocked")}
-                  >
-                    Unlocked
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant={filter === "locked" ? "default" : "outline"}
-                    onClick={() => setFilter("locked")}
-                  >
-                    Locked
-                  </Button>
-                  <Button
-                    size='sm'
-                    variant={filter === "hidden" ? "default" : "outline"}
-                    onClick={() => setFilter("hidden")}
-                  >
-                    Hidden
-                  </Button>
-                </div>
-                <div className='flex items-center gap-2'>
-                  <RefreshButton
-                    onRefresh={onRefresh}
-                    isRefreshing={isRefreshing}
-                    canRefresh={canRefresh}
-                  />
-                  <Button variant='destructive' onClick={() => onReset()}>
-                    Reset Achievements
-                    <Trash />
-                  </Button>
-                </div>
+            <div className='flex items-start justify-between'>
+              <div>
+                <CardTitle>Achievements</CardTitle>
+                <CardDescription>
+                  {total > 0
+                    ? `You Have Unlocked ${unlocked} of ${total}`
+                    : "No achievements found for this game."}
+                </CardDescription>
               </div>
+
+              {/* Crack Type Badge */}
+              {crackInfo && (
+                <div className='flex flex-col gap-1 items-end'>
+                  <Badge
+                    className={`${crackInfo.color} text-white border-0 px-3 py-1`}
+                  >
+                    <GamepadIcon className='w-3 h-3 mr-1' />
+                    {crackInfo.displayName}
+                  </Badge>
+                  {gameTrackedFile && (
+                    <span
+                      className='text-xs text-muted-foreground max-w-md truncate'
+                      title={gameTrackedFile.filePath}
+                    >
+                      Tracking:{" "}
+                      {gameTrackedFile.filePath.split("\\").pop() ||
+                        gameTrackedFile.filePath.split("/").pop()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {total > 0 && (
+              <>
+                {/* Search Bar */}
+                <div className='mt-3'>
+                  <Input
+                    type='text'
+                    placeholder='Search achievements by name...'
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className='w-full'
+                  />
+                </div>
+
+                <div className='flex justify-between items-center gap-2 flex-wrap'>
+                  <div className='flex gap-2 mt-2 flex-wrap'>
+                    <Button
+                      size='sm'
+                      variant={filter === "all" ? "default" : "outline"}
+                      onClick={() => setFilter("all")}
+                    >
+                      All
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant={filter === "unlocked" ? "default" : "outline"}
+                      onClick={() => setFilter("unlocked")}
+                    >
+                      Unlocked
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant={filter === "locked" ? "default" : "outline"}
+                      onClick={() => setFilter("locked")}
+                    >
+                      Locked
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant={filter === "hidden" ? "default" : "outline"}
+                      onClick={() => setFilter("hidden")}
+                    >
+                      Hidden
+                    </Button>
+                    <Separator orientation='vertical' className='h-8' />
+                    <Button
+                      size='sm'
+                      variant={sortBy === "rarity" ? "default" : "outline"}
+                      onClick={() =>
+                        setSortBy(sortBy === "rarity" ? "default" : "rarity")
+                      }
+                    >
+                      <Trophy className='w-3 h-3 mr-1' />
+                      Rarity (Low to High)
+                    </Button>
+                    <Button
+                      size='sm'
+                      variant={sortBy === "default" ? "default" : "outline"}
+                      onClick={() =>
+                        setSortBy(sortBy === "default" ? "rarity" : "default")
+                      }
+                    >
+                      <Star className='w-3 h-3 mr-1' />
+                      Rarity (High to Low)
+                    </Button>
+                  </div>
+                  <div className='flex items-center gap-2 flex-wrap'>
+                    <RefreshButton
+                      onRefresh={onRefresh}
+                      isRefreshing={isRefreshing}
+                      canRefresh={canRefresh}
+                    />
+                    <Button variant='destructive' onClick={() => onReset()}>
+                      Reset Achievements
+                      <Trash />
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </CardHeader>
         <CardContent className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
           {total > 0 ? (
-            filteredAchievements.map((achievement) => (
-              <AchievementCard
-                key={achievement?.name}
-                achievement={achievement}
-              />
-            ))
+            filteredAchievements.length > 0 ? (
+              filteredAchievements.map((achievement) => (
+                <AchievementCard
+                  key={achievement?.name}
+                  achievement={achievement}
+                  game={game}
+                />
+              ))
+            ) : (
+              <div className='col-span-full text-center text-muted-foreground py-8'>
+                <Search className='w-12 h-12 mx-auto mb-2 opacity-50' />
+                No achievements match your search
+              </div>
+            )
           ) : (
             <div className='col-span-full text-center text-muted-foreground'>
               No achievements to display.
@@ -748,7 +1041,18 @@ function GameDetailsAchievements({ game }: { game: GameStoreData }) {
   );
 }
 
-function AchievementCard({ achievement }: { achievement: Achievement }) {
+function AchievementCard({
+  achievement,
+  game,
+}: {
+  achievement: Achievement & {
+    calculatedScore?: number;
+    scoreTier?: string;
+    baseScore?: number;
+    percentage?: number;
+  };
+  game: GameStoreData;
+}) {
   const [icon, setIcon] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -760,6 +1064,21 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
     achievementPercentage
   );
   const tierConfig = TIER_CONFIGS[achievementTier];
+
+  // Format unlock time
+  const formatUnlockTime = (timestamp: string | undefined) => {
+    if (!timestamp || timestamp === "0") return null;
+    const date = new Date(parseInt(timestamp) * 1000);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const unlockTime = formatUnlockTime(achievement.achievedAt);
 
   useEffect(() => {
     const loadIcon = async () => {
@@ -918,50 +1237,84 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
                 </p>
               </div>
 
-              {/* Achievement Status & Tier */}
-              <div className='flex items-center justify-between gap-2'>
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.2 }}
-                >
-                  <Badge
-                    className='px-3 py-1 text-xs font-medium rounded-full border-0 transition-all duration-300 group-hover:scale-105'
-                    style={{
-                      background: isUnlocked
-                        ? `linear-gradient(135deg, ${tierConfig.colors.background})`
-                        : "linear-gradient(135deg, rgb(71, 85, 105), rgb(51, 65, 85))",
-                      color: "white",
-                    }}
+              {/* Achievement Status, Tier & Score */}
+              <div className='flex flex-col gap-2'>
+                <div className='flex items-center justify-between gap-2'>
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.2 }}
                   >
-                    <span className='flex items-center gap-1.5'>
-                      {isUnlocked ? (
-                        <>
-                          <Unlock className='w-3 h-3' />
-                          <span>UNLOCKED</span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className='w-3 h-3' />
-                          <span>LOCKED</span>
-                        </>
-                      )}
-                    </span>
-                  </Badge>
-                </motion.div>
+                    <Badge
+                      className='px-3 py-1 text-xs font-medium rounded-full border-0 transition-all duration-300 group-hover:scale-105'
+                      style={{
+                        background: isUnlocked
+                          ? `linear-gradient(135deg, ${tierConfig.colors.background})`
+                          : "linear-gradient(135deg, rgb(71, 85, 105), rgb(51, 65, 85))",
+                        color: "white",
+                      }}
+                    >
+                      <span className='flex items-center gap-1.5'>
+                        {isUnlocked ? (
+                          <>
+                            <Unlock className='w-3 h-3' />
+                            <span>UNLOCKED</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className='w-3 h-3' />
+                            <span>LOCKED</span>
+                          </>
+                        )}
+                      </span>
+                    </Badge>
+                  </motion.div>
 
-                {/* Tier Badge for unlocked achievements */}
+                  {/* Tier Badge for unlocked achievements */}
+                  {isUnlocked && (
+                    <Badge
+                      variant='outline'
+                      className={`text-xs px-2 py-1 ${tierConfig.colors.text}`}
+                      style={{
+                        borderColor: `${tierConfig.colors.background}60`,
+                        background: `${tierConfig.colors.background}10`,
+                      }}
+                    >
+                      {achievementTier}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Unlock Time and Score */}
                 {isUnlocked && (
-                  <Badge
-                    variant='outline'
-                    className={`text-xs px-2 py-1 ${tierConfig.colors.text}`}
-                    style={{
-                      borderColor: `${tierConfig.colors.background}60`,
-                      background: `${tierConfig.colors.background}10`,
-                    }}
-                  >
-                    {achievementTier}
-                  </Badge>
+                  <div className='flex flex-col gap-1 text-xs text-muted-foreground'>
+                    {unlockTime && (
+                      <div className='flex items-center gap-1'>
+                        <Clock className='w-3 h-3' />
+                        <span>{unlockTime}</span>
+                      </div>
+                    )}
+                    {achievement.percentage !== undefined && (
+                      <div className='flex items-center gap-1'>
+                        <span className='opacity-70'>
+                          {achievement.percentage}% of players
+                        </span>
+                      </div>
+                    )}
+                    {achievement.calculatedScore &&
+                      achievement.calculatedScore > 0 && (
+                        <div className='flex items-center gap-1'>
+                          <Trophy className='w-3 h-3 text-yellow-500' />
+                          <span className='font-semibold text-yellow-600 dark:text-yellow-400'>
+                            {achievement.calculatedScore.toLocaleString()}{" "}
+                            points
+                          </span>
+                          <span className='text-xs opacity-70'>
+                            ({achievement.scoreTier})
+                          </span>
+                        </div>
+                      )}
+                  </div>
                 )}
               </div>
             </div>
