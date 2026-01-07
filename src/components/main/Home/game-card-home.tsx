@@ -5,7 +5,7 @@ import { GameStoreData } from "@/types/Game";
 import { Star, Calendar, Play, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { loadImageWithCache } from "@/lib/image-cache";
 import { Link } from "react-router-dom";
 
 interface GameCardProps {
@@ -38,13 +38,9 @@ export function GameCard({ game, onPlay, priority }: GameCardProps) {
   const [img, setImg] = useState("");
   useEffect(() => {
     (async () => {
-      setImg(
-        await invoke("load_image", {
-          path: game.header_image,
-        })
-      );
+      setImg(await loadImageWithCache(game.header_image));
     })();
-  }, []);
+  }, [game.header_image]);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

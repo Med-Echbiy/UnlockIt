@@ -191,7 +191,7 @@ async fn fetch_igdb_data(
 #[tauri::command]
 async fn fetch_game_metadata_from_steam(app_id: String) -> Result<serde_json::Value, String> {
     let url = format!(
-        "https://store.steampowered.com/api/appdetails?appids={}",
+        "https://store.steampowered.com/api/appdetails?appids={}&l=english",
         app_id
     );
     println!("Fetching game metadata from URL: {}", url);
@@ -1584,6 +1584,376 @@ async fn fetch_steam_achievement_percentages(appid: String) -> Result<serde_json
     Ok(json)
 }
 
+#[tauri::command]
+async fn search_game_wallpapers(game_name: String) -> Result<Vec<String>, String> {
+    use scraper::{Html, Selector};
+    use urlencoding::encode;
+    
+    // Convert Roman numerals to Arabic numbers for better search (e.g., "Schedule I" -> "Schedule 1")
+    let normalized_name = game_name
+        .replace(" II ", " 2 ")
+        .replace(" III ", " 3 ")
+        .replace(" IV ", " 4 ")
+        .replace(" V ", " 5 ")
+        .replace(" VI ", " 6 ")
+        .replace(" VII ", " 7 ")
+        .replace(" VIII ", " 8 ")
+        .replace(" IX ", " 9 ")
+        .replace(" X ", " 10 ")
+        .trim()
+        .to_string();
+    
+    // Check if ends with Roman numeral
+    let final_name = if normalized_name.ends_with(" I") {
+        format!("{} 1", &normalized_name[..normalized_name.len()-2])
+    } else {
+        normalized_name
+    };
+    
+    // Search without site filters first, then filter results by source
+    let query = format!("\"{}\" game wallpaper 4k", final_name);
+    let encoded_query = encode(&query);
+    let url = format!("https://www.google.com/search?q={}&tbm=isch", encoded_query);
+    
+    println!("Searching for wallpapers: {}", url);
+    
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
+    
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let html = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    let document = Html::parse_document(&html);
+    
+    // First, collect up to 50 raw URLs
+    let mut raw_urls = Vec::new();
+    
+    // Try to find images in script tags containing JSON data
+    let script_selector = Selector::parse("script").unwrap();
+    for script in document.select(&script_selector) {
+        let script_text = script.inner_html();
+        
+        // Look for image URLs in the format: ["https://...",width,height]
+        if let Some(start_idx) = script_text.find("[[\"https://") {
+            let remaining = &script_text[start_idx..];
+            
+            // Extract URLs using regex
+            let url_pattern = regex::Regex::new(r#"https://[^"\\]+\.(?:jpg|jpeg|png|webp)"#).unwrap();
+            
+            for capture in url_pattern.find_iter(remaining) {
+                let url = capture.as_str().to_string();
+                
+                // Basic filtering - exclude obvious non-images
+                if !url.contains("gstatic.com") && 
+                   !url.contains("/favicon") && 
+                   !url.contains("logo") &&
+                   raw_urls.len() < 50 {
+                    raw_urls.push(url);
+                }
+            }
+            
+            if raw_urls.len() >= 50 {
+                break;
+            }
+        }
+    }
+    
+    // Now filter the raw URLs by preferred sources
+    let mut image_urls = Vec::new();
+    let preferred_sources = [
+        "steampowered.com",
+        "wall.alphacoders.com",
+        "wallpaperflare.com",
+        "wallpapercave.com",
+        "wallpaperaccess.com"
+    ];
+    
+    for url in &raw_urls {
+        // Check if URL is from one of our preferred sources
+        if preferred_sources.iter().any(|source| url.contains(source)) {
+            image_urls.push(url.clone());
+            if image_urls.len() >= 20 {
+                break;
+            }
+        }
+    }
+    
+    // If we didn't find enough results from preferred sources, use all raw results
+    if image_urls.len() < 10 {
+        println!("Only found {} from preferred sources, using all raw results", image_urls.len());
+        image_urls = raw_urls;
+        image_urls.truncate(20);
+    }
+    
+    // Deduplicate and limit
+    image_urls.sort();
+    image_urls.dedup();
+    image_urls.truncate(20);
+    
+    println!("Found {} wallpaper URLs (after filtering)", image_urls.len());
+    
+    if image_urls.is_empty() {
+        return Err("No wallpaper images found".to_string());
+    }
+    
+    Ok(image_urls)
+}
+
+#[tauri::command]
+async fn download_and_save_wallpaper(
+    image_url: String, 
+    _game_name: String,
+    app_id: String,
+    old_image_path: Option<String>
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    
+    println!("Downloading wallpaper from: {}", image_url);
+    
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
+    
+    let response = client
+        .get(&image_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download image: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+    
+    // Get app data directory
+    let app_data_dir = std::env::var("APPDATA")
+        .map_err(|_| "Failed to get APPDATA directory".to_string())?;
+    
+    let images_dir = Path::new(&app_data_dir)
+        .join("UnlockIt")
+        .join("images")
+        .join(&app_id);
+    
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&images_dir)
+        .map_err(|e| format!("Failed to create images directory: {}", e))?;
+    
+    // Delete old wallpaper if it exists and is a custom wallpaper (not from Steam)
+    if let Some(old_path) = old_image_path {
+        let old_path_buf = Path::new(&old_path);
+        
+        // Only delete if it's a custom wallpaper in our images directory
+        if old_path_buf.starts_with(&images_dir) && old_path_buf.exists() {
+            match fs::remove_file(&old_path_buf) {
+                Ok(_) => println!("Deleted old wallpaper: {:?}", old_path_buf),
+                Err(e) => println!("Failed to delete old wallpaper: {} (not critical)", e),
+            }
+        }
+    }
+    
+    // Save the image with a timestamp to avoid conflicts
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    let filename = format!("wallpaper_{}.jpg", timestamp);
+    let file_path = images_dir.join(&filename);
+    
+    fs::write(&file_path, &bytes)
+        .map_err(|e| format!("Failed to save image: {}", e))?;
+    
+    println!("Wallpaper saved to: {:?}", file_path);
+    
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+// Cover search and download functions for 4:3 library covers
+#[tauri::command]
+async fn search_game_covers(game_name: String) -> Result<Vec<String>, String> {
+    use scraper::{Html, Selector};
+    use urlencoding::encode;
+    
+    // Convert Roman numerals to Arabic numbers for better search (e.g., "Schedule I" -> "Schedule 1")
+    let normalized_name = game_name
+        .replace(" II ", " 2 ")
+        .replace(" III ", " 3 ")
+        .replace(" IV ", " 4 ")
+        .replace(" V ", " 5 ")
+        .replace(" VI ", " 6 ")
+        .replace(" VII ", " 7 ")
+        .replace(" VIII ", " 8 ")
+        .replace(" IX ", " 9 ")
+        .replace(" X ", " 10 ")
+        // Handle end of string cases
+        .trim()
+        .to_string();
+    
+    // Check if ends with Roman numeral
+    let final_name = if normalized_name.ends_with(" I") {
+        format!("{} 1", &normalized_name[..normalized_name.len()-2])
+    } else {
+        normalized_name
+    };
+    
+    // Prioritize results from popular gaming sites (Steam, IGDB, Metacritic)
+    let query = format!("{} game cover (site:steampowered.com OR site:igdb.com OR site:metacritic.com OR site:gog.com)", final_name);
+    let encoded_query = encode(&query);
+    let url = format!("https://www.google.com/search?q={}&tbm=isch", encoded_query);
+    
+    println!("Searching for covers: {}", url);
+    
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
+    
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Network error: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let html = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+    
+    let document = Html::parse_document(&html);
+    let mut image_urls = Vec::new();
+    
+    let script_selector = Selector::parse("script").unwrap();
+    for script in document.select(&script_selector) {
+        let script_text = script.inner_html();
+        
+        if let Some(start_idx) = script_text.find("[[\"https://") {
+            let remaining = &script_text[start_idx..];
+            let url_pattern = regex::Regex::new(r#"https://[^"\\]+\.(?:jpg|jpeg|png|webp)"#).unwrap();
+            
+            for capture in url_pattern.find_iter(remaining) {
+                let url = capture.as_str().to_string();
+                
+                if !url.contains("gstatic.com") && 
+                   !url.contains("/favicon") && 
+                   !url.contains("logo") &&
+                   image_urls.len() < 10 {
+                    image_urls.push(url);
+                }
+            }
+            
+            if image_urls.len() >= 10 {
+                break;
+            }
+        }
+    }
+    
+    image_urls.sort();
+    image_urls.dedup();
+    image_urls.truncate(10);
+    
+    println!("Found {} cover URLs", image_urls.len());
+    
+    if image_urls.is_empty() {
+        return Err("No cover images found".to_string());
+    }
+    
+    Ok(image_urls)
+}
+
+#[tauri::command]
+async fn download_and_save_cover(
+    image_url: String, 
+    _game_name: String,
+    app_id: String,
+    old_image_path: Option<String>
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    
+    println!("Downloading cover from: {}", image_url);
+    
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
+    
+    let response = client
+        .get(&image_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download image: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("HTTP error: {}", response.status()));
+    }
+    
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+    
+    let app_data_dir = std::env::var("APPDATA")
+        .map_err(|_| "Failed to get APPDATA directory".to_string())?;
+    
+    let images_dir = Path::new(&app_data_dir)
+        .join("UnlockIt")
+        .join("images")
+        .join(&app_id);
+    
+    fs::create_dir_all(&images_dir)
+        .map_err(|e| format!("Failed to create images directory: {}", e))?;
+    
+    // Delete old cover if it exists
+    if let Some(old_path) = old_image_path {
+        let old_path_buf = Path::new(&old_path);
+        if old_path_buf.starts_with(&images_dir) && old_path_buf.exists() {
+            match fs::remove_file(&old_path_buf) {
+                Ok(_) => println!("Deleted old cover: {:?}", old_path_buf),
+                Err(e) => println!("Failed to delete old cover: {} (not critical)", e),
+            }
+        }
+    }
+    
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    
+    let filename = format!("library_cover_{}.jpg", timestamp);
+    let file_path = images_dir.join(&filename);
+    
+    fs::write(&file_path, &bytes)
+        .map_err(|e| format!("Failed to save image: {}", e))?;
+    
+    println!("Cover saved to: {:?}", file_path);
+    
+    Ok(file_path.to_string_lossy().to_string())
+}
+
 //-------------------------------------
 
 //-------------------------------------
@@ -1712,6 +2082,10 @@ pub fn run() {
             get_how_long_to_beat,
             fetch_steam_achievement_percentages,
             download_and_install_update,
+            search_game_wallpapers,
+            download_and_save_wallpaper,
+            search_game_covers,
+            download_and_save_cover,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

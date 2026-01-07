@@ -30,15 +30,25 @@ function Home() {
   const { getGames } = useMyGamesStore();
   const { loadProfile } = useProfileStore();
   const { getGamePath } = useAddGameWorkflow();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [shuffledDiscoverGames, setShuffledDiscoverGames] = useState<
     GameStoreData[]
   >([]);
+
   useEffect(() => {
     loadProfile();
   }, []);
+
   useEffect(() => {
+    // Check if achievements have already been parsed in this session
+    const achievementsParsed = sessionStorage.getItem("achievementsParsed");
+
+    if (achievementsParsed === "true") {
+      setLoading(false);
+      return;
+    }
+
     (async () => {
       setLoading(true);
       const games = getGames() || [];
@@ -49,8 +59,10 @@ function Home() {
         await parseAchievements(game.appId, game.exePath);
       }
       setLoading(false);
+      // Mark achievements as parsed for this session
+      sessionStorage.setItem("achievementsParsed", "true");
     })();
-  }, [(getGames() || []).length]);
+  }, []);
   useEffect(() => {
     const games = getGames() || [];
     const unplayedGames = games.filter(
@@ -187,7 +199,13 @@ function Home() {
     );
   }
   return (
-    <div className='min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 relative'>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className='min-h-screen bg-gradient-to-br from-background via-background/95 to-background/90 relative'
+    >
       <AnimatedBackground />
 
       <div className='container mx-auto px-6 py-8 space-y-12 relative z-10'>
@@ -285,7 +303,7 @@ function Home() {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

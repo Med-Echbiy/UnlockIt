@@ -157,7 +157,13 @@ function Games() {
   };
 
   return (
-    <main className='w-full min-h-screen relative overflow-hidden p-4 max-w-screen-2xl mx-auto'>
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className='w-full min-h-screen relative overflow-hidden p-4 max-w-screen-2xl mx-auto'
+    >
       <div className='max-w-full mx-auto relative z-10'>
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -452,7 +458,7 @@ function Games() {
           </motion.div>
         )}
       </div>
-    </main>
+    </motion.main>
   );
 }
 

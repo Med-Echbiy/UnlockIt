@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Folder, Users, Trash } from "lucide-react";
 import useAchievementsStore from "@/store/achievements-store";
 import { Progress } from "@/components/ui/progress";
-import { invoke } from "@tauri-apps/api/core";
+import { loadImageWithCache } from "@/lib/image-cache";
 import { Button } from "@/components/ui/button";
 import useRemoveGameWorkflow from "@/workflow/remove-game-workflow";
 import { useGameCardTier } from "@/hooks/use-ranking";
@@ -27,12 +27,10 @@ export function GameCard({ game, index }: GameCardProps) {
 
   useEffect(() => {
     (async () => {
-      const src: string = await invoke("load_image", {
-        path: game.header_image,
-      });
+      const src = await loadImageWithCache(game.header_image);
       setImg(src);
     })();
-  }, []);
+  }, [game.header_image]);
 
   const rawAchievements = useAchievementsStore(
     (s) =>

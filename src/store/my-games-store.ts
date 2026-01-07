@@ -9,6 +9,9 @@ interface MyGamesStore {
   setStatus: (appId: string, status: GameStoreData["status"]) => void;
   setRating: (appId: string, rating: string) => void;
   setPlaytime: (appId: string, playtime: number) => void;
+  setHeaderImage: (appId: string, headerImage: string) => void;
+  setLibraryCover: (appId: string, libraryCover: string) => void;
+  updateExePath: (appId: string, exePath: string, dir: string) => void;
   getGames: () => GameStoreData[];
 }
 
@@ -47,6 +50,28 @@ const useMyGamesStore = create<MyGamesStore>((set, get) => ({
     set((state) => ({
       games: state.games.map((game) =>
         String(game.appId) === appId ? { ...game, playtime } : game
+      ),
+    })),
+  setHeaderImage: (appId, headerImage) =>
+    set((state) => ({
+      games: state.games.map((game) =>
+        String(game.appId) === appId
+          ? { ...game, header_image: headerImage }
+          : game
+      ),
+    })),
+  setLibraryCover: (appId, libraryCover) =>
+    set((state) => ({
+      games: state.games.map((game) =>
+        String(game.appId) === appId
+          ? { ...game, library_cover: libraryCover }
+          : game
+      ),
+    })),
+  updateExePath: (appId, exePath, dir) =>
+    set((state) => ({
+      games: state.games.map((game) =>
+        String(game.appId) === appId ? { ...game, exePath, dir } : game
       ),
     })),
   getGames: () => get().games,

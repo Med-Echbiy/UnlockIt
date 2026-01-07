@@ -8,6 +8,7 @@ export interface GameStoreData {
   background: string;
   background_raw: string;
   igdb_cover?: string | null; // IGDB box art cover (portrait/vertical format)
+  library_cover?: string | null; // Custom 4:3 library cover
   developers: string[];
   release_date: {
     coming_soon: boolean;

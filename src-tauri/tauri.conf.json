@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "UnlockIt - Ultimate Achievement Tracker",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "identifier": "UnlockIt",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -14,7 +14,9 @@
       {
         "title": "UnlockIt - Ultimate Achievement Tracker",
         "width": 1200,
-        "height": 720,
+        "height": 1070,
+        "minWidth": 1200,
+        "minHeight": 1070,
         "closable": true,
         "minimizable": true,
         "maximizable": true

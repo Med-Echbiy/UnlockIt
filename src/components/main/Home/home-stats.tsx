@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import useProfileStore from "@/store/profile-store";
 import { GameStoreData } from "@/types/Game";
 import { useEffect, useState, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { loadImageWithCache } from "@/lib/image-cache";
 import UserProfileCard from "../shared/user-profile";
 
 interface HomeStatsProps {
@@ -39,7 +39,7 @@ export function HomeStats({ games }: HomeStatsProps) {
   useEffect(() => {
     (async () => {
       if (profile.avatar) {
-        setProfilePic(await invoke("load_image", { path: profile.avatar }));
+        setProfilePic(await loadImageWithCache(profile.avatar));
       }
     })();
   }, [profile.avatar]);

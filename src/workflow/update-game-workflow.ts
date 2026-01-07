@@ -7,6 +7,9 @@ const useUpdateGameWorkflow = () => {
     setStatus: setStoreStatus,
     setRating: setStoreRating,
     setPlaytime: setStorePlaytime,
+    setHeaderImage: setStoreHeaderImage,
+    setLibraryCover: setStoreLibraryCover,
+    updateExePath: updateStoreExePath,
   } = useMyGamesStore();
 
   const setGameStatus = async (
@@ -24,8 +27,7 @@ const useUpdateGameWorkflow = () => {
         await store.set(gameKey, updatedGame);
         await store.save();
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const setGameRating = async (appId: string, rating: string) => {
@@ -40,8 +42,7 @@ const useUpdateGameWorkflow = () => {
         await store.set(gameKey, updatedGame);
         await store.save();
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   };
 
   const setGamePlaytime = async (appId: string, playtime: number) => {
@@ -56,7 +57,61 @@ const useUpdateGameWorkflow = () => {
         await store.set(gameKey, updatedGame);
         await store.save();
       }
+    } catch (error) {}
+  };
+
+  const setGameHeaderImage = async (appId: string, headerImage: string) => {
+    setStoreHeaderImage(appId, headerImage);
+    try {
+      const store = await load("my-games.json");
+      const gameKey = `game_${appId}`;
+      const gameData = (await store.get(gameKey)) as GameStoreData;
+
+      if (gameData) {
+        const updatedGame = { ...gameData, header_image: headerImage };
+        await store.set(gameKey, updatedGame);
+        await store.save();
+      }
     } catch (error) {
+      console.error("Failed to save header image:", error);
+    }
+  };
+
+  const setGameLibraryCover = async (appId: string, libraryCover: string) => {
+    setStoreLibraryCover(appId, libraryCover);
+    try {
+      const store = await load("my-games.json");
+      const gameKey = `game_${appId}`;
+      const gameData = (await store.get(gameKey)) as GameStoreData;
+
+      if (gameData) {
+        const updatedGame = { ...gameData, library_cover: libraryCover };
+        await store.set(gameKey, updatedGame);
+        await store.save();
+      }
+    } catch (error) {
+      console.error("Failed to save library cover:", error);
+    }
+  };
+
+  const setGameExePath = async (
+    appId: string,
+    exePath: string,
+    dir: string
+  ) => {
+    updateStoreExePath(appId, exePath, dir);
+    try {
+      const store = await load("my-games.json");
+      const gameKey = `game_${appId}`;
+      const gameData = (await store.get(gameKey)) as GameStoreData;
+
+      if (gameData) {
+        const updatedGame = { ...gameData, exePath, dir };
+        await store.set(gameKey, updatedGame);
+        await store.save();
+      }
+    } catch (error) {
+      console.error("Failed to save exe path:", error);
     }
   };
 
@@ -64,6 +119,9 @@ const useUpdateGameWorkflow = () => {
     setGameStatus,
     setGameRating,
     setGamePlaytime,
+    setGameHeaderImage,
+    setGameLibraryCover,
+    setGameExePath,
   };
 };
 

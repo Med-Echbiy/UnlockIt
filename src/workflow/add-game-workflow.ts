@@ -17,6 +17,7 @@ import useUIStateStore from "@/store/ui-state-store";
 import useHowLongToBeatWorkflow from "./how-long-to-beat-workflow";
 import useParsingWorkflow from "./parser/parse-workflow";
 import useAutoGameStatusWorkflow from "./auto-game-status-workflow";
+import useUpdateGameWorkflow from "./update-game-workflow";
 // import { igdbClient } from "@/lib/igdb-client"; // Temporarily disabled
 
 const useAddGameWorkflow = () => {
@@ -33,6 +34,7 @@ const useAddGameWorkflow = () => {
   const { getSteamApiKey } = useRequiredDataStore();
   const { executeHowLongToBeatWorkflow } = useHowLongToBeatWorkflow();
   const { checkAndUpdateGameStatus } = useAutoGameStatusWorkflow();
+  const { setGameExePath } = useUpdateGameWorkflow();
 
   // Helper function to fetch IGDB cover art
   /* TEMPORARILY DISABLED - Uncomment when needed
@@ -204,6 +206,26 @@ const useAddGameWorkflow = () => {
         return false;
       }
 
+      // Check if game already exists by appId
+      const { games } = useMyGamesStore.getState();
+      const existingGame = games.find((g) => String(g.appId) === String(appId));
+
+      if (existingGame) {
+        // Game already exists, just update the exe path if different
+        if (existingGame.exePath !== gamePath || existingGame.dir !== dir) {
+          await setGameExePath(String(appId), gamePath, dir);
+
+          toast.success("Game exe path updated", {
+            description: `Updated exe path for ${existingGame.name}`,
+          });
+        } else {
+          toast.info("Game already in library", {
+            description: `${existingGame.name} is already in your library`,
+          });
+        }
+        return true;
+      }
+
       setAddGameLoadingProgress(25);
 
       // Fetch metadata with retry logic
@@ -216,19 +238,28 @@ const useAddGameWorkflow = () => {
       setGameLoadingName(name);
       setAddGameLoadingProgress(40);
 
+      // Check if game was previously added and has existing images
+      const gameStore = await load("my-games.json");
+      const previousGame = await gameStore.get<any>(`game_${appId}`);
+      const hasExistingImages =
+        previousGame?.header_image && previousGame?.library_cover;
+
       // Parallel operations for better performance
       const [imageResults, achievementsResult /*, igdbCoverResult*/] =
         await Promise.allSettled([
-          // Download images in parallel
-          Promise.all([
-            downloadImage(metadata.header_image, `cover_${appId}.jpg`).catch(
-              () => null
-            ),
-            downloadImage(
-              metadata.background_raw,
-              `background_${appId}.jpg`
-            ).catch(() => null),
-          ]),
+          // Download images in parallel (skip if existing images found)
+          hasExistingImages
+            ? Promise.resolve([previousGame.header_image, null])
+            : Promise.all([
+                downloadImage(
+                  metadata.header_image,
+                  `cover_${appId}.jpg`
+                ).catch(() => null),
+                downloadImage(
+                  metadata.background_raw,
+                  `background_${appId}.jpg`
+                ).catch(() => null),
+              ]),
           // Get achievements
           getGameSteamAchievementSchema(String(metadata.steam_appid), gamePath),
           // Fetch IGDB cover art (proper game box art)
@@ -240,6 +271,56 @@ const useAddGameWorkflow = () => {
         String(metadata.steam_appid),
         String(name)
       ).catch(() => {});
+
+      // Auto-download first wallpaper for header_image (skip if existing)
+      let autoWallpaper: string | null = hasExistingImages
+        ? previousGame.header_image
+        : null;
+      if (!hasExistingImages) {
+        try {
+          const wallpaperUrls = await invoke<string[]>(
+            "search_game_wallpapers",
+            {
+              gameName: name,
+            }
+          );
+          if (wallpaperUrls && wallpaperUrls.length > 0) {
+            autoWallpaper = await invoke<string>(
+              "download_and_save_wallpaper",
+              {
+                imageUrl: wallpaperUrls[0],
+                gameName: name,
+                appId: String(metadata.steam_appid),
+                oldImagePath: null,
+              }
+            );
+          }
+        } catch (error) {
+          console.log("Auto wallpaper download failed, using Steam header");
+        }
+      }
+
+      // Auto-download first library cover (skip if existing)
+      let autoLibraryCover: string | null = hasExistingImages
+        ? previousGame.library_cover
+        : null;
+      if (!hasExistingImages) {
+        try {
+          const coverUrls = await invoke<string[]>("search_game_covers", {
+            gameName: name,
+          });
+          if (coverUrls && coverUrls.length > 0) {
+            autoLibraryCover = await invoke<string>("download_and_save_cover", {
+              imageUrl: coverUrls[0],
+              gameName: name,
+              appId: String(metadata.steam_appid),
+              oldImagePath: null,
+            });
+          }
+        } catch (error) {
+          console.log("Auto library cover download failed");
+        }
+      }
 
       setAddGameLoadingProgress(75);
 
@@ -272,10 +353,11 @@ const useAddGameWorkflow = () => {
         dir,
         capsule_image: metadata.capsule_image,
         capsule_imagev5: metadata.capsule_imagev5,
-        header_image: cover || metadata.header_image,
+        header_image: autoWallpaper || cover || metadata.header_image,
         background: backgroundImg || metadata.background_raw,
         background_raw: metadata.background_raw,
         igdb_cover: igdbCover, // IGDB box art cover (portrait)
+        library_cover: autoLibraryCover, // Auto-downloaded 2:3 cover
         developers: metadata.developers,
         release_date: metadata.release_date,
         metacritic: metadata.metacritic,

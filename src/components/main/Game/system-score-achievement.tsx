@@ -26,6 +26,7 @@ export function SystemScoreAchievement({
   const tierConfig = TIER_CONFIGS[achievement.tier];
 
   useEffect(() => {
+    console.log({ achievement });
     const loadIcon = async () => {
       try {
         setIsLoading(true);
